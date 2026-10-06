@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n="meta.landingTitle">mrwowo — clear short-dated stock, protect price, keep a record for every lot</title>
+  <meta name="description" data-i18n-attr="content:meta.landingDesc" content="mrwowo helps FMCG brand owners and distributors clear short-dated stock: a hard price floor, many sales channels, and a record for every lot that finance and audit can use.">
+  <meta name="theme-color" content="#0B3D2C">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/landing.css">
+</head>
+<body class="landing">
+  <a class="skip" href="#main" data-i18n="common.skip">Skip to content</a>
+
+  <!-- ================= Header ================= -->
+  <header class="hdr" id="hdr">
+    <div class="hdr__in wrap">
+      <button class="icon-btn" id="menuOpen" aria-controls="drawer" aria-expanded="false" data-i18n-attr="aria-label:l.menuOpen"><i data-icon="menu"></i></button>
+      <a class="brand" href="index.html" data-i18n-attr="aria-label:l.home"><span data-logo></span>mrwowo</a>
+      <nav class="hdr__nav" data-i18n-attr="aria-label:l.nav.label">
+        <a href="#how" data-i18n="l.nav.how">How it works</a>
+        <a href="#channels" data-i18n="l.nav.channels">Channels</a>
+        <a href="#compare" data-i18n="l.nav.compare">Compare</a>
+        <a href="#faq" data-i18n="l.nav.faq">FAQ</a>
+      </nav>
+      <div class="hdr__act">
+        <span data-lang-switch></span>
+        <a class="btn btn--outline btn--sm hdr__login" href="app.html" data-i18n="l.login">Log in</a>
+        <a class="btn btn--primary btn--sm" href="app.html#/lo-hang" data-i18n="l.openDemo">Open the demo</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= Two-level drawer (Instacart-style) ================= -->
+  <div class="drawer" id="drawer" role="dialog" aria-modal="true" data-i18n-attr="aria-label:l.menu" hidden>
+    <div class="drawer__scrim" data-close></div>
+    <div class="drawer__panel">
+      <div class="drawer__col drawer__col--main">
+        <div class="drawer__head">
+          <button class="icon-btn" data-close data-i18n-attr="aria-label:l.menuClose"><i data-icon="x"></i></button>
+          <a class="brand" href="index.html"><span data-logo></span>mrwowo</a>
+        </div>
+        <ul class="drawer__groups" role="tablist" aria-orientation="vertical">
+          <li><button role="tab" aria-selected="true" data-group="product"><span data-i18n="l.g.product">Product</span> <i data-icon="chevron-right" data-class="ico--sm"></i></button></li>
+          <li><button role="tab" aria-selected="false" data-group="channels"><span data-i18n="l.g.channels">Channels</span> <i data-icon="chevron-right" data-class="ico--sm"></i></button></li>
+          <li><button role="tab" aria-selected="false" data-group="resources"><span data-i18n="l.g.resources">Resources</span> <i data-icon="chevron-right" data-class="ico--sm"></i></button></li>
+        </ul>
+        <div class="drawer__foot">
+          <span data-lang-switch></span>
+          <a class="btn btn--primary btn--block" href="app.html#/lo-hang" data-i18n="l.openDemo">Open the demo</a>
+          <p class="sample-note" data-i18n="l.drawerNote">All figures in the demo are sample data / estimates</p>
+        </div>
+      </div>
+      <div class="drawer__col drawer__col--sub">
+        <ul data-panel="product">
+          <li><a href="app.html#/luat" data-i18n="l.p1">1 · Owner rules</a></li>
+          <li><a href="app.html#/lo-hang" data-i18n="l.p2">2 · Lot board &amp; time simulation</a></li>
+          <li><a href="app.html#/duyet" data-i18n="l.p3">3 · Approvals</a></li>
+          <li><a href="app.html#/kenh" data-i18n="l.p4">4 · Channel split</a></li>
+          <li><a href="app.html#/bao-cao" data-i18n="l.p5">5 · Lot report</a></li>
+        </ul>
+        <ul data-panel="channels" hidden>
+          <li><a href="#channels" data-i18n="l.c.minimart">Mini-mart chain</a></li>
+          <li><a href="#channels" data-i18n="l.c.zalo">Zalo group-buy</a></li>
+          <li><a href="#channels" data-i18n="l.c.partner">Partner app (illustrative)</a></li>
+          <li><a href="#channels" data-i18n="l.c.charity">Charity partner</a></li>
+          <li><a href="#channels" data-i18n="l.c.transfer">Transfer · Return to supplier</a></li>
+          <li><a href="#channels" data-i18n="l.c.disposal">Documented disposal</a></li>
+        </ul>
+        <ul data-panel="resources" hidden>
+          <li><a href="#how" data-i18n="l.r.how">How it works</a></li>
+          <li><a href="#compare" data-i18n="l.r.compare">Versus current practice</a></li>
+          <li><a href="#faq" data-i18n="l.r.faq">FAQ</a></li>
+          <li><a href="docs/DEMO-SCRIPT.md" data-i18n="l.r.script">3-minute demo script</a></li>
+          <li><a href="docs/BUSINESS-RULES.md" data-i18n="l.r.rules">Business rules</a></li>
+          <li><a href="#contact" data-i18n="l.r.contact">Book a conversation</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <main id="main">
+    <!-- ================= Hero ================= -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero__in wrap">
+        <div class="hero__copy">
+          <p class="eyebrow eyebrow--light" data-i18n="l.hero.eyebrow">For heads of trade marketing &amp; supply chain</p>
+          <h1 id="hero-title" data-i18n-html="l.hero.title">Short-dated stock still turns into cash — <span>without breaking price or losing track of a lot.</span></h1>
+          <p class="hero__lead" data-i18n-html="l.hero.lead"><strong>mrwowo</strong> clears short-dated stock, protects price, and keeps a record for every lot. You set the rules once; it proposes an action for each lot, sells through many channels, and writes every order back to one lot record.</p>
+          <div class="hero__cta">
+            <a class="btn btn--white btn--lg" href="app.html#/lo-hang"><span data-i18n="l.openDemo">Open the demo</span> <i data-icon="arrow-right"></i></a>
+            <a class="btn btn--glass btn--lg" href="#how" data-i18n="l.hero.cta2">See how it works</a>
+          </div>
+          <ul class="hero__trust">
+            <li><i data-icon="shield" data-class="ico--sm"></i> <span data-i18n="l.trust1">Never below the floor you set</span></li>
+            <li><i data-icon="file" data-class="ico--sm"></i> <span data-i18n="l.trust2">A record per lot for finance &amp; audit</span></li>
+            <li><i data-icon="box" data-class="ico--sm"></i> <span data-i18n="l.trust3">Dry, sealed packaged goods only</span></li>
+          </ul>
+        </div>
+
+        <!-- Product preview: price steps down and stops at the floor -->
+        <div class="hero__demo" aria-hidden="true">
+          <div class="mock">
+            <div class="mock__bar">
+              <span></span><span></span><span></span>
+              <p data-i18n="l.mock.bar">Lot board · Minh Phat Distribution</p>
+            </div>
+            <div class="mock__body">
+              <div class="mock__time">
+                <span data-i18n="l.mock.time">Time simulation</span>
+                <strong id="mockDay">Today</strong>
+              </div>
+              <div class="mock__track"><i id="mockFill"></i></div>
+              <div class="mock-lot" id="mockLot">
+                <div class="mock-lot__top">
+                  <span class="mock-lot__zone" id="mockZone"></span>
+                  <span class="mock-lot__sku">GV2604-15A</span>
+                </div>
+                <p class="mock-lot__name" id="mockName"></p>
+                <div class="mock-lot__price">
+                  <strong id="mockPrice"></strong>
+                  <s id="mockList"></s>
+                  <em id="mockCut"></em>
+                </div>
+                <div class="mock-lot__rail"><b id="mockFloor"></b><i id="mockPin"></i></div>
+                <p class="mock-lot__flag" id="mockFlag"></p>
+              </div>
+              <div class="mock__kpi">
+                <div>
+                  <span data-i18n="l.mock.net">Net recovery</span>
+                  <strong id="mockNet">0</strong>
+                </div>
+                <div>
+                  <span data-i18n="l.mock.base">Current practice</span>
+                  <strong class="is-muted" id="mockBase">0</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="mock__note" data-i18n="l.mock.note">Illustration with sample data</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Channels (store-tile row) ================= -->
+    <section class="section section--tight" id="channels" aria-labelledby="ch-title">
+      <div class="wrap">
+        <div class="section__head section__head--row">
+          <div>
+            <h2 id="ch-title" data-i18n="l.ch.title">One lot record — many ways out</h2>
+            <p class="section__sub" data-i18n="l.ch.sub">Channels are just doors. Your lots and your rules stay with you; every order, from any channel, posts back to one lot record.</p>
+          </div>
+          <div class="rail-nav">
+            <button class="icon-btn rail-nav__btn" data-rail="prev" data-i18n-attr="aria-label:l.ch.prev"><i data-icon="arrow-left"></i></button>
+            <button class="icon-btn rail-nav__btn" data-rail="next" data-i18n-attr="aria-label:l.ch.next"><i data-icon="arrow-right"></i></button>
+          </div>
+        </div>
+        <ul class="rail" id="channelRail">
+          <li class="tile"><span class="tile__ico tile__ico--green"><i data-icon="store" data-class="ico--lg"></i></span><b data-i18n="l.c.minimart">Mini-mart chain</b><span class="tag-yellow" data-i18n="l.tag.floor">Holds the floor</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--blue"><i data-icon="users" data-class="ico--lg"></i></span><b data-i18n="l.c.zalo">Zalo group-buy</b><span class="tag-yellow" data-i18n="l.tag.brand">Brand can be hidden</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--orange"><i data-icon="phone" data-class="ico--lg"></i></span><b data-i18n="l.m.o3">Partner app (illustrative)</b><span class="tile__sub" data-i18n="l.t.partnerSub">(illustrative)</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--violet"><i data-icon="heart" data-class="ico--lg"></i></span><b data-i18n="l.c.charity">Charity partner</b><span class="tag-yellow" data-i18n="l.tag.record">Handover record</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--teal"><i data-icon="truck" data-class="ico--lg"></i></span><b data-i18n="l.t.transfer">Stock transfer</b><span class="tile__sub" data-i18n="l.t.transferSub">To where it sells faster</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--slate"><i data-icon="undo" data-class="ico--lg"></i></span><b data-i18n="l.t.return">Return to supplier</b><span class="tile__sub" data-i18n="l.t.returnSub">Per contract</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--gift"><i data-icon="gift" data-class="ico--lg"></i></span><b data-i18n="l.t.bundle">Bundle</b><span class="tile__sub" data-i18n="l.t.bundleSub">No deep markdown</span></li>
+          <li class="tile"><span class="tile__ico tile__ico--red"><i data-icon="file" data-class="ico--lg"></i></span><b data-i18n="l.t.disposal">Documented disposal</b><span class="tag-yellow" data-i18n="l.tag.sign">Photos + signatures</span></li>
+        </ul>
+        <p class="fineprint" data-i18n="l.ch.fine">Channel names are illustrative; mrwowo has not announced a partnership with any app or retail chain.</p>
+      </div>
+    </section>
+
+    <!-- ================= Benefits ================= -->
+    <section class="section section--soft" aria-labelledby="benefit-title">
+      <div class="wrap">
+        <div class="section__head">
+          <p class="eyebrow" data-i18n="l.b.eyebrow">We sell outcomes, not technology</p>
+          <h2 id="benefit-title" data-i18n="l.b.title">What the goods owner gets</h2>
+        </div>
+        <ul class="benefits">
+          <li class="benefit"><span class="benefit__ico"><i data-icon="coins"></i></span><div><h3 data-i18n="l.b1.t">Higher net recovery</h3><p data-i18n="l.b1.x"></p></div></li>
+          <li class="benefit"><span class="benefit__ico"><i data-icon="shield"></i></span><div><h3 data-i18n="l.b2.t">The floor is a hard rule</h3><p data-i18n="l.b2.x"></p></div></li>
+          <li class="benefit"><span class="benefit__ico"><i data-icon="eye"></i></span><div><h3 data-i18n="l.b3.t">Brand control</h3><p data-i18n="l.b3.x"></p></div></li>
+          <li class="benefit"><span class="benefit__ico"><i data-icon="clock"></i></span><div><h3 data-i18n="l.b4.t">Automatic safety line</h3><p data-i18n="l.b4.x"></p></div></li>
+          <li class="benefit"><span class="benefit__ico"><i data-icon="file"></i></span><div><h3 data-i18n="l.b5.t">A record for every lot</h3><p data-i18n="l.b5.x"></p></div></li>
+          <li class="benefit"><span class="benefit__ico"><i data-icon="leaf"></i></span><div><h3 data-i18n="l.b6.t">Less stock destroyed</h3><p data-i18n="l.b6.x"></p></div></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ================= How it works ================= -->
+    <section class="section" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <div class="section__head section__head--center">
+          <p class="eyebrow" data-i18n="l.how.eyebrow">5 screens, about 3 minutes</p>
+          <h2 id="how-title" data-i18n="l.how.title">From a short-dated lot to a recovery record</h2>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <div class="step__art step__art--rules">
+              <div class="art-rule"><span data-i18n="l.art.floor">Floor</span><b>60%</b></div>
+              <div class="art-rule"><span data-i18n="l.art.cap">Max discount</span><b>50%</b></div>
+              <div class="art-rule"><span data-i18n="l.art.buyer">Per buyer</span><b>6</b></div>
+            </div>
+            <span class="step__n">1</span>
+            <h3 data-i18n="l.s1.t">Owner rules</h3>
+            <p data-i18n="l.s1.x"></p>
+          </li>
+          <li class="step">
+            <div class="step__art step__art--board">
+              <i class="z z--ok"></i><i class="z z--watch"></i><i class="z z--act"></i><i class="z z--urgent"></i><i class="z z--removed"></i>
+            </div>
+            <span class="step__n">2</span>
+            <h3 data-i18n="l.s2.t">Lot board &amp; simulation</h3>
+            <p data-i18n="l.s2.x"></p>
+          </li>
+          <li class="step">
+            <div class="step__art step__art--approve">
+              <span class="art-btn art-btn--ok" data-i18n="l.art.approve">Approve</span><span class="art-btn" data-i18n="l.art.reject">Reject</span>
+              <span class="art-lock"><i data-icon="lock" data-class="ico--sm"></i> <span data-i18n="l.art.blocked">Breaks a rule: blocked</span></span>
+            </div>
+            <span class="step__n">3</span>
+            <h3 data-i18n="l.s3.t">Approvals</h3>
+            <p data-i18n="l.s3.x"></p>
+          </li>
+          <li class="step">
+            <div class="step__art step__art--split">
+              <span class="hub" data-i18n="l.art.lot">Lot</span><i class="spoke s1"></i><i class="spoke s2"></i><i class="spoke s3"></i><i class="spoke s4"></i>
+            </div>
+            <span class="step__n">4</span>
+            <h3 data-i18n="l.s4.t">Channel split</h3>
+            <p data-i18n="l.s4.x"></p>
+          </li>
+          <li class="step">
+            <div class="step__art step__art--report">
+              <i style="--h:38%"></i><i style="--h:64%"></i><i style="--h:52%"></i><i style="--h:88%"></i>
+            </div>
+            <span class="step__n">5</span>
+            <h3 data-i18n="l.s5.t">Lot report</h3>
+            <p data-i18n="l.s5.x"></p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ================= Figures (computed live by the demo's engine) ================= -->
+    <section class="section section--tight" aria-labelledby="stats-title">
+      <div class="wrap">
+        <div class="statband">
+          <div class="statband__head">
+            <h2 id="stats-title" data-i18n="l.st.title">Across 15 sample lots, one set of rules</h2>
+            <p class="sample-note" data-i18n="l.st.note">Sample data / estimates — computed live by the demo’s engine</p>
+          </div>
+          <dl class="stats">
+            <div class="stat"><dt data-i18n="l.st.net">Projected net recovery</dt><dd data-stat="net">—</dd><p data-i18n="l.st.netSub">if every proposal is approved</p></div>
+            <div class="stat"><dt data-i18n="l.st.base">Current practice</dt><dd data-stat="base">—</dd><p data-i18n="l.st.baseSub">liquidation to jobbers / end-of-period disposal</p></div>
+            <div class="stat"><dt data-i18n="l.st.uplift">Difference</dt><dd data-stat="uplift">—</dd><p data-stat="ratio">—</p></div>
+            <div class="stat"><dt data-i18n="l.st.saved">Units kept out of disposal</dt><dd data-stat="saved">—</dd><p data-stat="co2">—</p></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Comparison (Instacart Business-style table) ================= -->
+    <section class="section section--soft" id="compare" aria-labelledby="cmp-title">
+      <div class="wrap">
+        <div class="section__head">
+          <h2 id="cmp-title" data-i18n="l.cmp.title">Versus how short-dated stock is handled today</h2>
+          <p class="section__sub" data-i18n="l.cmp.sub">mrwowo doesn’t replace your sales team — it replaces the spreadsheet and the call to the jobber.</p>
+        </div>
+        <div class="cmp-scroll" tabindex="0" role="region" data-i18n-attr="aria-label:l.cmp.aria">
+          <table class="cmp">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="l.cmp.h0">Criterion</th>
+                <th scope="col" data-i18n="l.cmp.h1">Liquidation to jobbers</th>
+                <th scope="col" data-i18n="l.cmp.h2">End-of-period disposal</th>
+                <th scope="col" class="cmp__us">mrwowo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row" data-i18n="l.cmp.r1"></th><td><span class="mk mk--part" data-i18n="l.cmp.r1a"></span></td><td><span class="mk mk--no" data-i18n="l.cmp.r1b"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r1c"></span></td></tr>
+              <tr><th scope="row" data-i18n="l.cmp.r2"></th><td><span class="mk mk--no" data-i18n="l.cmp.r2a"></span></td><td><span class="mk mk--na" data-i18n="l.cmp.na"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r2c"></span></td></tr>
+              <tr><th scope="row" data-i18n="l.cmp.r3"></th><td><span class="mk mk--no" data-i18n="l.cmp.r3a"></span></td><td><span class="mk mk--na" data-i18n="l.cmp.na"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r3c"></span></td></tr>
+              <tr><th scope="row" data-i18n="l.cmp.r4"></th><td><span class="mk mk--no" data-i18n="l.cmp.r4a"></span></td><td><span class="mk mk--na" data-i18n="l.cmp.na"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r4c"></span></td></tr>
+              <tr><th scope="row" data-i18n="l.cmp.r5"></th><td><span class="mk mk--part" data-i18n="l.cmp.r5a"></span></td><td><span class="mk mk--part" data-i18n="l.cmp.r5b"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r5c"></span></td></tr>
+              <tr><th scope="row" data-i18n="l.cmp.r6"></th><td><span class="mk mk--no" data-i18n="l.cmp.r6a"></span></td><td><span class="mk mk--na" data-i18n="l.cmp.na"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r6c"></span></td></tr>
+              <tr><th scope="row" data-i18n="l.cmp.r7"></th><td><span class="mk mk--part" data-i18n="l.cmp.r7a"></span></td><td><span class="mk mk--no" data-i18n="l.cmp.r7b"></span></td><td class="cmp__us"><span class="mk mk--yes" data-i18n="l.cmp.r7c"></span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= Model ================= -->
+    <section class="section" aria-labelledby="model-title">
+      <div class="wrap model">
+        <div class="model__copy">
+          <p class="eyebrow" data-i18n="l.m.eyebrow">The model</p>
+          <h2 id="model-title" data-i18n="l.m.title">You keep the lots and the rules. Channels are just doors.</h2>
+          <p data-i18n="l.m.p1"></p>
+          <p data-i18n-html="l.m.p2"></p>
+          <a class="btn btn--primary" href="app.html#/kenh"><span data-i18n="l.m.cta">See the channel split</span> <i data-icon="arrow-right"></i></a>
+        </div>
+        <div class="model__art" aria-hidden="true">
+          <div class="flow">
+            <div class="flow__src">
+              <b data-i18n="l.m.src">Goods owner</b>
+              <span data-i18n="l.m.srcSub">Lots · Rules · Approvals</span>
+            </div>
+            <div class="flow__core">
+              <span data-logo></span>
+              <b data-i18n="l.m.core">Lot record</b>
+              <span data-i18n="l.m.coreSub">one source of truth</span>
+            </div>
+            <ul class="flow__out">
+              <li><i class="dot" style="--c:#15803D"></i><span data-i18n="l.m.o1">Mini-marts</span></li>
+              <li><i class="dot" style="--c:#2563EB"></i><span data-i18n="l.m.o2">Group-buy</span></li>
+              <li><i class="dot" style="--c:#C2410C"></i><span data-i18n="l.m.o3">Partner app (illustrative)</span></li>
+              <li><i class="dot" style="--c:#7C6FD0"></i><span data-i18n="l.m.o4">Charity</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= FAQ ================= -->
+    <section class="section section--soft" id="faq" aria-labelledby="faq-title">
+      <div class="wrap faq-wrap">
+        <h2 id="faq-title" data-i18n="l.faq.title">Frequently asked questions</h2>
+        <div class="faq">
+          <details open><summary data-i18n="l.f1.q"></summary><p data-i18n="l.f1.a"></p></details>
+          <details><summary data-i18n="l.f2.q"></summary><p data-i18n="l.f2.a"></p></details>
+          <details><summary data-i18n="l.f3.q"></summary><p data-i18n="l.f3.a"></p></details>
+          <details><summary data-i18n="l.f4.q"></summary><p data-i18n="l.f4.a"></p></details>
+          <details><summary data-i18n="l.f5.q"></summary><p data-i18n="l.f5.a"></p></details>
+          <details><summary data-i18n="l.f6.q"></summary><p data-i18n="l.f6.a"></p></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CTA + form ================= -->
+    <section class="section" id="contact" aria-labelledby="cta-title">
+      <div class="wrap">
+        <div class="cta">
+          <div class="cta__copy">
+            <span class="brand brand--light"><span data-logo></span>mrwowo</span>
+            <h2 id="cta-title" data-i18n="l.cta.title">Start with one lot.</h2>
+            <p data-i18n="l.cta.text"></p>
+            <a class="btn btn--white btn--lg" href="app.html#/lo-hang"><span data-i18n="l.openDemo">Open the demo</span> <i data-icon="arrow-right"></i></a>
+          </div>
+          <form class="cta__form" id="leadForm" novalidate>
+            <h3 data-i18n="l.form.title">Book a conversation</h3>
+            <div class="field">
+              <label class="field__label" for="f-name" data-i18n="l.form.name">Full name</label>
+              <input class="input" id="f-name" name="name" autocomplete="name" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-company" data-i18n="l.form.company">Company</label>
+              <input class="input" id="f-company" name="company" autocomplete="organization" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-role" data-i18n="l.form.role">Role</label>
+              <select class="select" id="f-role" name="role">
+                <option value="trade-marketing" data-i18n="l.form.role1">Trade marketing</option>
+                <option value="supply-chain" data-i18n="l.form.role2">Supply chain</option>
+                <option value="finance" data-i18n="l.form.role3">Finance / control</option>
+                <option value="leadership" data-i18n="l.form.role4">Leadership</option>
+                <option value="other" data-i18n="l.form.role5">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-contact" data-i18n="l.form.contact">Email or phone</label>
+              <input class="input" id="f-contact" name="contact" autocomplete="email" required>
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-lots" data-i18n="l.form.lots">Short-dated lots per month (estimate)</label>
+              <select class="select" id="f-lots" name="lots">
+                <option value="<10" data-i18n="l.form.lots1">Under 10 lots</option>
+                <option value="10-50" data-i18n="l.form.lots2">10–50 lots</option>
+                <option value="50-200" data-i18n="l.form.lots3">50–200 lots</option>
+                <option value=">200" data-i18n="l.form.lots4">Over 200 lots</option>
+              </select>
+            </div>
+            <p class="form-error" id="leadError" role="alert" hidden></p>
+            <button class="btn btn--primary btn--block" type="submit" data-i18n="l.form.submit">Send request</button>
+            <p class="fineprint" data-i18n="l.form.fine">Demo only: details stay in your browser and are not sent anywhere.</p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= Footer (multi-column, Instacart-style) ================= -->
+  <footer class="ftr">
+    <div class="wrap">
+      <div class="ftr__grid">
+        <div class="ftr__brand">
+          <a class="brand" href="index.html"><span data-logo></span>mrwowo</a>
+          <p data-i18n="l.f.tagline">Clear short-dated stock, protect price, keep a record for every lot.</p>
+          <a class="btn btn--primary btn--sm" href="app.html#/lo-hang" data-i18n="l.openDemo">Open the demo</a>
+        </div>
+        <nav class="ftr__col" data-i18n-attr="aria-label:l.f.product">
+          <h4 data-i18n="l.f.product">Product</h4>
+          <a href="app.html#/luat" data-i18n="l.s1.t">Owner rules</a>
+          <a href="app.html#/lo-hang" data-i18n="nav.board">Lot board</a>
+          <a href="app.html#/duyet" data-i18n="l.s3.t">Approvals</a>
+          <a href="app.html#/kenh" data-i18n="l.s4.t">Channel split</a>
+          <a href="app.html#/bao-cao" data-i18n="l.s5.t">Lot report</a>
+        </nav>
+        <nav class="ftr__col" data-i18n-attr="aria-label:l.f.channels">
+          <h4 data-i18n="l.f.channels">Channels</h4>
+          <a href="#channels" data-i18n="l.c.minimart">Mini-mart chain</a>
+          <a href="#channels" data-i18n="l.c.zalo">Zalo group-buy</a>
+          <a href="#channels" data-i18n="l.c.partner">Partner app (illustrative)</a>
+          <a href="#channels" data-i18n="l.c.charity">Charity partner</a>
+          <a href="#channels" data-i18n="l.t.return">Return to supplier</a>
+        </nav>
+        <nav class="ftr__col" data-i18n-attr="aria-label:l.f.resources">
+          <h4 data-i18n="l.f.resources">Resources</h4>
+          <a href="#how" data-i18n="l.r.how">How it works</a>
+          <a href="#compare" data-i18n="l.nav.compare">Compare</a>
+          <a href="docs/DEMO-SCRIPT.md" data-i18n="l.r.script">3-minute demo script</a>
+          <a href="docs/BUSINESS-RULES.md" data-i18n="l.r.rules">Business rules</a>
+          <a href="#faq" data-i18n="l.nav.faq">FAQ</a>
+        </nav>
+        <nav class="ftr__col" data-i18n-attr="aria-label:l.f.contact">
+          <h4 data-i18n="l.f.contact">Contact</h4>
+          <a href="#contact" data-i18n="l.f.book">Book a conversation</a>
+          <a href="#contact" data-i18n="l.f.try">Try it on a real lot</a>
+        </nav>
+      </div>
+      <div class="ftr__a11y">
+        <span data-i18n="l.f.a11y">Accessibility</span>
+        <label class="switch">
+          <input type="checkbox" id="contrastToggle">
+          <span class="switch__track"></span>
+          <span data-i18n="l.f.contrast">Enable high contrast colours</span>
+        </label>
+        <span class="ftr__lang"><span data-i18n="common.lang">Language</span> <span data-lang-switch></span></span>
+      </div>
+      <div class="ftr__legal">
+        <p id="copyright">© 2026 mrwowo · Phase 0 demo.</p>
+        <p data-i18n="l.f.legal">All figures are sample data / estimates.</p>
+      </div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/landing.js"></script>
+</body>
+</html>

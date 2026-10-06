@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>mrwowo</title>
+  <meta name="description" content="mrwowo demo: owner rules, a lot board with time simulation, approvals, channel split and a net-recovery report per lot.">
+  <meta name="theme-color" content="#0B3D2C">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="app">
+  <a class="skip" href="#view" data-i18n="common.skip">Skip to content</a>
+
+  <!-- Sidebar -->
+  <aside class="side" id="side" data-i18n-attr="aria-label:nav.label">
+    <div class="side__head">
+      <a class="brand" href="index.html"><span data-logo></span>mrwowo</a>
+      <button class="icon-btn icon-btn--sm side__close" data-action="nav-close" data-i18n-attr="aria-label:nav.close"><i data-icon="x"></i></button>
+    </div>
+    <p class="side__tagline" data-i18n="brand.tagline">Clear short-dated stock, protect price, keep a record for every lot</p>
+
+    <div class="owner">
+      <span class="owner__ava" id="ownerAva">MP</span>
+      <div>
+        <b id="ownerName">Minh Phat Distribution</b>
+        <span data-i18n="owner.sub">Goods owner · fictional</span>
+      </div>
+    </div>
+
+    <nav class="side__nav">
+      <a href="#/luat" data-route="luat"><span class="side__n">1</span><i data-icon="sliders"></i><span data-i18n="nav.rules">Owner rules</span></a>
+      <a href="#/lo-hang" data-route="lo-hang"><span class="side__n">2</span><i data-icon="grid"></i><span data-i18n="nav.board">Lot board</span></a>
+      <a href="#/duyet" data-route="duyet"><span class="side__n">3</span><i data-icon="approve"></i><span data-i18n="nav.approvals">Approvals</span><b class="side__badge" id="badgePending" hidden>0</b></a>
+      <a href="#/kenh" data-route="kenh"><span class="side__n">4</span><i data-icon="split"></i><span data-i18n="nav.channels">Channel split</span></a>
+      <a href="#/bao-cao" data-route="bao-cao"><span class="side__n">5</span><i data-icon="report"></i><span data-i18n="nav.report">Lot report</span></a>
+    </nav>
+
+    <div class="side__foot">
+      <button class="btn btn--outline btn--sm btn--block" data-action="tour-toggle"><i data-icon="play2" data-class="ico--sm"></i> <span data-i18n="nav.tour">3-minute demo script</span></button>
+      <a class="side__link" href="index.html"><i data-icon="home" data-class="ico--sm"></i> <span data-i18n="nav.home">Product site</span></a>
+      <p class="sample-note" data-i18n="common.sample">Sample data / estimates</p>
+    </div>
+  </aside>
+  <div class="side-scrim" data-action="nav-close" hidden></div>
+
+  <!-- Main -->
+  <div class="shell">
+    <header class="top">
+      <button class="icon-btn top__menu" data-action="nav-open" data-i18n-attr="aria-label:nav.open"><i data-icon="menu"></i></button>
+      <div class="top__title">
+        <h1 id="pageTitle">Lot board</h1>
+        <p id="pageSub"></p>
+      </div>
+      <div class="top__right">
+        <span data-lang-switch></span>
+        <label class="persona">
+          <span class="persona__ava" id="personaAva">TH</span>
+          <span class="sr-only" data-i18n="persona.label">Operator</span>
+          <select id="personaSelect" class="persona__select"></select>
+        </label>
+        <div class="menu">
+          <button class="icon-btn" data-action="menu-toggle" aria-haspopup="true" aria-expanded="false" data-i18n-attr="aria-label:menu.label"><i data-icon="more"></i></button>
+          <div class="menu__pop" id="menuPop" role="menu" hidden>
+            <button role="menuitem" data-action="seed"><i data-icon="play2" data-class="ico--sm"></i> <span data-i18n="menu.seed">Load pre-approved scenario</span></button>
+            <button role="menuitem" data-action="reset"><i data-icon="refresh" data-class="ico--sm"></i> <span data-i18n="menu.reset">Reset sample data</span></button>
+            <button role="menuitem" data-action="export-lots"><i data-icon="download" data-class="ico--sm"></i> <span data-i18n="menu.export">Export lot summary (CSV)</span></button>
+            <button role="menuitem" data-action="contrast"><i data-icon="eye" data-class="ico--sm"></i> <span id="contrastLabel">High contrast</span></button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Time simulation (screens 2, 4, 5) -->
+    <section class="timebar" id="timebar" data-i18n-attr="aria-label:time.label" hidden>
+      <button class="timebar__play" data-action="play"><span id="playIcon"></span></button>
+      <div class="timebar__main">
+        <div class="timebar__row">
+          <label for="dayRange" class="timebar__label"><span data-i18n="time.label">Time simulation</span> <small data-i18n="time.range">0–60 days</small></label>
+          <output class="timebar__out" id="dayOut" for="dayRange"></output>
+        </div>
+        <input type="range" class="range" id="dayRange" min="0" max="60" step="1" value="0">
+        <div class="timebar__ticks" aria-hidden="true"><span>0</span><span>15</span><span>30</span><span>45</span><span>60</span></div>
+      </div>
+      <div class="timebar__side">
+        <button class="btn btn--ghost btn--xs" data-action="day-step" data-step="-1" data-i18n-attr="aria-label:time.back">−1</button>
+        <button class="btn btn--ghost btn--xs" data-action="day-step" data-step="1" data-i18n-attr="aria-label:time.fwd">+1</button>
+        <button class="btn btn--ghost btn--xs" data-action="day-reset" data-i18n="time.today">Today</button>
+      </div>
+    </section>
+
+    <main id="view" class="view" tabindex="-1"></main>
+  </div>
+
+  <!-- Lot detail drawer -->
+  <div class="lotdrawer" id="lotDrawer" role="dialog" aria-modal="true" aria-labelledby="lotDrawerTitle" hidden>
+    <div class="lotdrawer__scrim" data-action="drawer-close"></div>
+    <div class="lotdrawer__panel" id="lotDrawerBody"></div>
+  </div>
+
+  <!-- Demo script -->
+  <aside class="tour" id="tour" hidden></aside>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
