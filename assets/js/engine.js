@@ -23,6 +23,7 @@
 
   var ELASTICITY = 2.5;   // every 10% off → +25% sell-through (estimate)
   var EXEC_DAYS = 2;      // processing days for donate / return / dispose
+  var LIQUIDATION_HANDLING = 400; // VND per unit to load stock out to jobbers (baseline)
   var POST_SAFETY = ['tra_ncc', 'quyen_gop', 'huy'];
 
   /* ---------- helpers ---------- */
@@ -331,34 +332,51 @@
         dispose('quyen_gop', Math.min(alloc.charity, units.stock), EXEC_DAYS);
       }
 
+      // Real orders (e.g. from the storefront) are booked first on their day, at the price paid.
+      var orders = (plan.orders || []).filter(function (o) { return o.units > 0; });
+
+      function book(c, n, price, d, orderId) {
+        var rev = n * price, fee = rev * c.feePct / 100, ship = n * c.shipPerUnit * lot.bulk, hand = n * (rules.handlingPerUnit + extraHandling);
+        m.revenue += rev; m.fees += fee; m.shipping += ship; m.handling += hand;
+        var b = byChannel[c.id];
+        b.units += n; b.revenue += rev; b.fees += fee; b.shipping += ship; b.handling += hand;
+        units.sold += n; units.stock -= n; rem[c.id] -= n;
+        events.push({ day: d, kind: 'sale', channel: c.id, units: n, price: price, orderId: orderId || null });
+        var key = c.id + '|' + price;
+        if (!priceSteps[key]) priceSteps[key] = { channel: c.id, price: price, units: 0, revenue: 0 };
+        priceSteps[key].units += n;
+        priceSteps[key].revenue += rev;
+      }
+
       var cf = capFactor(rules);
       var lastSaleDay = Math.min(removeDay, until);
       for (var d = 0; d < lastSaleDay; d++) {
         if (d < transit) continue;
         var dl = lot.daysLeft - d;
         var any = false;
+        orders.forEach(function (o) {
+          var c = o.day === d ? channelById(o.channel) : null;
+          if (!c || byChannel[c.id].blocked) return;
+          var n = Math.min(o.units, rem[c.id] || 0, units.stock);
+          if (n > 0) book(c, n, o.price, d, o.id);
+        });
+        // Units promised to real orders on later days are reserved: simulated demand cannot take them.
+        var later = orders.filter(function (o) { return o.day > d; });
+        var heldAll = later.reduce(function (s, o) { return s + o.units; }, 0);
         saleChannels().forEach(function (c) {
           if (!rem[c.id] || byChannel[c.id].blocked || units.stock <= 0) return;
           any = true;
           var pr = priceAt(lot, dl, rules, { extraCut: plan.extraCut || 0, channel: c.id });
           if (pr.atFloor && res.floorDay == null) res.floorDay = d;
           acc[c.id] += lot.demand * c.reach * (1 + ELASTICITY * pr.cutPct / 100) * boost * factor * cf;
-          var n = Math.min(rem[c.id], Math.floor(acc[c.id]), units.stock);
+          var held = later.reduce(function (s, o) { return s + (o.channel === c.id ? o.units : 0); }, 0);
+          var n = Math.min(rem[c.id] - held, Math.floor(acc[c.id]), units.stock - heldAll);
           if (n <= 0) return;
-          acc[c.id] -= n; rem[c.id] -= n;
-          var rev = n * pr.price, fee = rev * c.feePct / 100, ship = n * c.shipPerUnit * lot.bulk, hand = n * (rules.handlingPerUnit + extraHandling);
-          m.revenue += rev; m.fees += fee; m.shipping += ship; m.handling += hand;
-          var b = byChannel[c.id];
-          b.units += n; b.revenue += rev; b.fees += fee; b.shipping += ship; b.handling += hand;
-          units.sold += n; units.stock -= n;
-          events.push({ day: d, kind: 'sale', channel: c.id, units: n, price: pr.price });
-          var key = c.id + '|' + pr.price;
-          if (!priceSteps[key]) priceSteps[key] = { channel: c.id, price: pr.price, units: 0, revenue: 0 };
-          priceSteps[key].units += n;
-          priceSteps[key].revenue += rev;
+          acc[c.id] -= n;
+          book(c, n, pr.price, d);
         });
         if (units.stock <= 0) { res.endDay = d; break; }
-        if (!any) break;
+        if (!any && !orders.some(function (o) { return o.day > d; })) break;
       }
       // Safety line reached: auto-removed from sale; the remainder follows the rules.
       if (units.stock > 0 && until >= removeDay) {
@@ -383,6 +401,45 @@
     return res;
   }
 
+  /*
+   * What a storefront channel can offer on a given day.
+   * Listed only for sell plans, above the safety line, after any transfer transit,
+   * outside excluded regions and while the channel's allocation lasts.
+   */
+  function storefront(lot, plan, rules, day, channelId) {
+    channelId = channelId || 'shop';
+    var c = channelById(channelId);
+    var safety = safetyDays(lot, rules);
+    var left = lot.daysLeft - day;
+    var out = { listed: false, reason: null, available: 0, left: left, delistIn: left - safety };
+    if (!c || !isSale(plan.action)) { out.reason = 'notSale'; return out; }
+    if (left <= safety) { out.reason = 'removed'; return out; }
+    if (channelAccess(c, rules).blocked) { out.reason = 'blocked'; return out; }
+    var transit = plan.action === 'chuyen_kho' && lot.transfer ? lot.transfer.transitDays : 0;
+    if (day < transit) { out.reason = 'transit'; out.inDays = transit - day; return out; }
+
+    var sim = simulateLot(lot, plan, rules, { until: day });
+    var pending = (plan.orders || []).filter(function (o) { return o.day >= day; })
+      .reduce(function (s, o) { return s + o.units; }, 0);
+    var pendingHere = (plan.orders || []).filter(function (o) { return o.day >= day && o.channel === channelId; })
+      .reduce(function (s, o) { return s + o.units; }, 0);
+    var alloc = Math.floor((plan.allocations || {})[channelId] || 0);
+    out.available = Math.max(0, Math.min(alloc - sim.byChannel[channelId].units - pendingHere, sim.units.stock - pending));
+
+    var pr = priceAt(lot, left, rules, { extraCut: plan.extraCut || 0, channel: channelId });
+    out.price = pr.price;
+    out.cutPct = pr.cutPct;
+    out.atFloor = pr.atFloor;
+    out.next = null;
+    for (var d = day + 1; d < day + out.delistIn; d++) {
+      var p = priceAt(lot, lot.daysLeft - d, rules, { extraCut: plan.extraCut || 0, channel: channelId }).price;
+      if (p < pr.price) { out.next = { inDays: d - day, price: p }; break; }
+    }
+    out.listed = out.available > 0;
+    if (!out.listed) out.reason = 'soldOut';
+    return out;
+  }
+
   /* Baseline: the owner's current practice. */
   function baseline(lot, rules) {
     if (lot.practice === 'huy') {
@@ -390,12 +447,12 @@
       return { practice: 'huy', revenue: 0, cost: cost, net: -cost };
     }
     var rev = lot.qty * lot.base * rules.liquidationPct / 100;
-    var c = lot.qty * 400 * lot.bulk; // loading & hand-over to jobbers
+    var c = lot.qty * LIQUIDATION_HANDLING * lot.bulk;
     return { practice: 'thanh_ly', revenue: rev, cost: c, net: rev - c };
   }
 
   /* Unified ledger — every channel posts to the one lot record. */
-  var PREFIX = { minimart: 'MM', zalo: 'ZL', partner: 'AP', charity: 'TT' };
+  var PREFIX = { minimart: 'MM', zalo: 'ZL', partner: 'AP', shop: 'SH', charity: 'TT' };
   function ledger(lot, sim, avgOrder) {
     avgOrder = avgOrder || 3;
     var rows = [], seq = 0;
@@ -404,7 +461,7 @@
       seq++;
       rows.push({
         id: (PREFIX[e.channel] || 'XX') + '-' + lot.id + '-' + String(seq).padStart(4, '0'),
-        day: e.day, channel: e.channel, units: e.units, price: e.price, kind: e.kind,
+        day: e.day, channel: e.channel, units: e.units, price: e.price, kind: e.kind, orderId: e.orderId || null,
         orders: e.kind === 'sale' ? Math.max(1, Math.ceil(e.units / avgOrder)) : 1
       });
     });
@@ -436,6 +493,7 @@
     allocTotal: allocTotal,
     guard: guard,
     simulateLot: simulateLot,
+    storefront: storefront,
     baseline: baseline,
     ledger: ledger
   };

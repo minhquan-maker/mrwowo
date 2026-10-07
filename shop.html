@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n="meta.shopTitle">mrwowo shop — genuine brands, close to date, honest prices</title>
+  <meta name="description" data-i18n-attr="content:meta.shopDesc" content="Sealed, genuine branded goods close to their best-before date. The price steps down as the date gets closer and never goes below the floor the brand sets.">
+  <meta name="theme-color" content="#FFFFFF">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/shop.css">
+</head>
+<body class="shop">
+  <a class="skip" href="#grid" data-i18n="common.skipShop">Skip to the products</a>
+
+  <!-- Demo bar: shared simulated day -->
+  <div class="demobar">
+    <div class="wrap demobar__in">
+      <span class="demobar__tag mono">DEMO</span>
+      <span class="demobar__txt" data-i18n="sh.demo">Prices follow the simulated day. Your basket stays in this browser — no real payment.</span>
+      <label class="demobar__clock">
+        <span class="sr-only" data-i18n="time.label">Simulation</span>
+        <input type="range" class="range" id="dayRange" min="0" max="60" step="1" value="0">
+        <output class="mono" id="dayOut"></output>
+      </label>
+      <a class="demobar__link" href="seller.html" data-i18n="sh.sellerLink">Seller view</a>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <header class="hdr">
+    <div class="wrap hdr__in">
+      <a class="brand" href="shop.html"><span data-logo></span>mrwowo<span class="brand__tag" data-i18n="sh.tag">shop</span></a>
+      <label class="finder">
+        <i data-icon="search" data-class="ico--sm"></i>
+        <span class="sr-only" data-i18n="sh.search">Search</span>
+        <input id="search" type="search" autocomplete="off" data-i18n-attr="placeholder:sh.searchPh">
+      </label>
+      <div class="hdr__tools">
+        <span data-lang-switch></span>
+        <button class="icon-btn" data-action="view-saved" data-i18n-attr="aria-label:sh.saved"><i data-icon="heart"></i><b class="count" id="savedCount" hidden>0</b></button>
+        <button class="icon-btn" data-action="open-orders" data-i18n-attr="aria-label:sh.orders"><i data-icon="receipt"></i></button>
+        <button class="btn btn--primary btn--sm cartbtn" data-action="open-cart"><i data-icon="bag" data-class="ico--sm"></i><span id="cartLabel">0</span></button>
+      </div>
+    </div>
+    <nav class="wrap cats" id="cats" data-i18n-attr="aria-label:sh.categories"></nav>
+  </header>
+
+  <main id="main">
+    <section class="wrap hero" id="hero"></section>
+    <section class="wrap listing">
+      <div class="listing__bar">
+        <p class="listing__count" id="count"></p>
+        <label class="sortsel">
+          <span data-i18n="sh.sortBy">Sort by</span>
+          <select class="select select--sm" id="sort"></select>
+        </label>
+      </div>
+      <div class="grid" id="grid"></div>
+    </section>
+    <section class="wrap how" id="how"></section>
+  </main>
+
+  <footer class="ftr">
+    <div class="wrap ftr__in">
+      <div>
+        <a class="brand" href="shop.html"><span data-logo></span>mrwowo</a>
+        <p class="muted small" data-i18n="sh.footer">Genuine branded goods close to their date, at a price the brand allows. Every item bought is one that is not thrown away.</p>
+      </div>
+      <div class="ftr__links">
+        <a href="index.html" data-i18n="sh.about">About mrwowo</a>
+        <a href="seller.html" data-i18n="sh.forSellers">For brands &amp; distributors</a>
+        <span class="sample-note" data-i18n="common.sample">Sample data</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Mobile tab bar -->
+  <nav class="tabbar" data-i18n-attr="aria-label:sh.quickNav">
+    <button data-action="view-all"><i data-icon="home"></i><span data-i18n="sh.tabShop">Shop</span></button>
+    <button data-action="view-saved"><i data-icon="heart"></i><span data-i18n="sh.saved">Saved</span></button>
+    <button data-action="open-orders"><i data-icon="receipt"></i><span data-i18n="sh.orders">Orders</span></button>
+    <button data-action="open-cart"><i data-icon="bag"></i><span data-i18n="sh.basket">Basket</span><b class="count" id="tabCount" hidden>0</b></button>
+  </nav>
+
+  <!-- Overlays -->
+  <div id="overlay" hidden>
+    <div class="scrim" data-action="close"></div>
+    <div id="overlayBody"></div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/shop.js"></script>
+</body>
+</html>

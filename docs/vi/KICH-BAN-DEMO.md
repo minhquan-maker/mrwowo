@@ -8,22 +8,24 @@
 
 ## Chuẩn bị (30 giây, trước khi vào phòng)
 
-1. Mở `app.html#/lo-hang`, bấm ⋮ → **Đặt lại dữ liệu mẫu**.
+1. Mở `seller.html#/lo-hang`, bấm ⋮ → **Về kịch bản demo** (12 lô đã duyệt, 1 bị từ chối, 2 đang chờ).
+   Mở `shop.html` ở tab thứ hai (nút **Mở cửa hàng** ở sidebar).
 2. Bấm **VI** ở góc trên (lựa chọn được ghi nhớ).
 3. Người thao tác: **Nguyễn Thu Hà — Trưởng phòng Trade Marketing**.
 4. Bật **Kịch bản demo 3 phút** (nút ở sidebar) nếu muốn có nhắc bài trên màn hình.
-5. Dự phòng khi thời gian rất ngắn: ⋮ → **Nạp kịch bản đã duyệt sẵn** (8 lô đã duyệt, 1 lô bị từ chối).
+5. Muốn trình bày duyệt từ đầu: ⋮ → **Bắt đầu lại từ đầu** (cửa hàng sẽ trống cho tới khi duyệt).
 
 ## Lời thoại
 
 | Thời điểm | Màn hình | Làm | Nói |
 |---|---|---|---|
-| 0:00 | Bảng lô | Chỉ vào màu thẻ, mở một thẻ đỏ | "Đây là 15 lô hàng khô của một nhà phân phối. Màu là số ngày còn lại. Mỗi lô có một đề xuất kèm lý do — ví dụ lô trà xanh này vừa chạm 30 ngày, hợp đồng cho phép trả nhà máy, nên đề xuất là trả nhà cung cấp." |
-| 0:30 | Bảng lô | Bấm ▶ trên thanh thời gian | "Giả sử thời gian trôi. Giá giảm theo bậc… và **dừng ở giá sàn** anh/chị đặt. Lô nào chạm 30 ngày thì **tự gỡ** khỏi mọi kênh bán — không ai phải nhớ." |
-| 1:10 | Luật | Kéo giá sàn, bật ẩn thương hiệu ở nhóm Zalo, loại trừ TP.HCM | "Luật là của anh/chị: giá sàn, trần giảm, mỗi người mua tối đa bao nhiêu, ẩn thương hiệu ở đâu, không bán ở khu vực nào để không đụng kênh chính. Cột phải cho thấy luật này làm thu hồi tăng hay giảm bao nhiêu." |
-| 1:40 | Duyệt | Ở lô mì ly, kéo "giảm thêm thủ công" lên 20 → bấm Duyệt | "Kể cả người duyệt cũng không vượt được luật. Thấy không — bị chặn, và lần thử này nằm trong nhật ký." Rồi bấm **Duyệt các đề xuất hợp lệ**. |
-| 2:15 | Phân kênh | Chọn lô snack, bấm ▶ | "Một lô chia ra mini-mart, nhóm mua chung, app đối tác — đây chỉ là minh họa — và từ thiện. Giá theo từng kênh, thương hiệu ẩn/hiện theo luật. Đơn ở kênh nào cũng chảy về **một hồ sơ lô**." |
-| 2:35 | Báo cáo | Chỉ con số lớn, mở một hồ sơ lô, bấm **CSV tổng hợp cho tài chính** | "Đây là con số mà phòng tài chính quan tâm: **giá trị thu hồi ròng** — sau phí kênh, vận chuyển, xử lý — so với xả cho đầu nậu hoặc hủy. Từng lô: bán bao nhiêu, giá nào, còn lại đi đâu, ai duyệt lúc nào." |
+| 0:00 | Lô hàng | Chỉ vào chấm màu, sắp xếp theo *Còn*, mở một lô đỏ | "Đây là 15 lô hàng khô của một nhà phân phối. Màu là số ngày còn lại. Mỗi lô có một đề xuất kèm lý do — ví dụ lô trà xanh này vừa chạm 30 ngày, hợp đồng cho phép trả nhà máy, nên đề xuất là trả nhà cung cấp." |
+| 0:30 | Lô hàng | Bấm ▶ trên thanh thời gian | "Giả sử thời gian trôi. Giá giảm theo bậc… và **dừng ở giá sàn** anh/chị đặt. Lô nào chạm 30 ngày thì **tự gỡ** khỏi mọi kênh bán — không ai phải nhớ." |
+| 1:00 | Luật | Kéo giá sàn, bật ẩn thương hiệu ở nhóm Zalo, loại trừ TP.HCM | "Luật là của anh/chị: giá sàn, trần giảm, mỗi người mua tối đa bao nhiêu, ẩn thương hiệu ở đâu, không bán ở khu vực nào để không đụng kênh chính. Cột phải cho thấy luật này làm thu hồi tăng hay giảm bao nhiêu." |
+| 1:30 | Duyệt | Ở lô snack rong biển, mở **Chi tiết**, kéo "giảm thêm thủ công" lên 20 → bấm Duyệt | "Kể cả người duyệt cũng không vượt được luật. Thấy không — bị chặn, và lần thử này nằm trong nhật ký." Rồi bấm **Duyệt các đề xuất hợp lệ**. |
+| 2:00 | Kênh bán | Chọn lô bánh quy bơ, bấm ▶ | "Một lô chia ra mini-mart, nhóm mua chung, app đối tác — đây chỉ là minh họa — cửa hàng mrwowo và từ thiện. Giá theo từng kênh, thương hiệu ẩn/hiện theo luật. Đơn ở kênh nào cũng chảy về **một hồ sơ lô**." |
+| 2:20 | Cửa hàng (tab 2) | Thêm 2–3 món, đặt hàng, quay lại tab người bán | "Đây là thứ người mua thấy: hàng chính hãng, hạn dùng, lần giảm giá tiếp theo — không bao giờ dưới giá sàn của anh/chị. Đơn vừa rồi đã nằm trong hồ sơ lô." |
+| 2:40 | Báo cáo | Chỉ con số lớn, mở một hồ sơ lô, bấm **CSV tổng hợp cho tài chính** | "Đây là con số mà phòng tài chính quan tâm: **giá trị thu hồi ròng** — sau phí kênh, vận chuyển, xử lý — so với xả cho đầu nậu hoặc hủy. Từng lô: bán bao nhiêu, giá nào, còn lại đi đâu, ai duyệt lúc nào." |
 | 3:00 | — | Dừng tay | **"Anh/chị có trả tiền cho cái này không?"** |
 
 ## Câu hỏi sau demo (chọn 3–5)

@@ -1,14 +1,14 @@
 /*
- * mrwowo — app.js
- * The 5-screen dashboard, hash-routed:
+ * mrwowo — seller.js
+ * The seller dashboard (5 screens, hash-routed):
  *   #/luat          1. Owner rules
- *   #/lo-hang       2. Lot board + time simulation
+ *   #/lo-hang       2. Lots + time simulation
  *   #/duyet         3. Approvals
  *   #/kenh/:lot     4. Channel split
  *   #/bao-cao/:lot  5. Lot report
  *
- * Business logic lives in engine.js and every string in i18n.js;
- * this file only builds the interface.
+ * Business logic lives in engine.js and every string in i18n.js; this file only
+ * builds the interface. Buyer orders placed in shop.html arrive through the store.
  */
 (function () {
   'use strict';
@@ -29,6 +29,7 @@
   /* ---------- labels ---------- */
   function lotName(lot) { return L(lot.name); }
   function unit(lot) { return L(lot.unit); }
+  function units(lot, n) { return num(n) + ' ' + unit(lot); }
   function actLabel(a) { return D.ACTIONS[a] ? L(D.ACTIONS[a].label) : a; }
   function chLabel(id) { var c = E.channelById(id); return c ? L(c.label) : id; }
   function whLabel(id) { return D.WAREHOUSES[id] ? L(D.WAREHOUSES[id].label) : id; }
@@ -41,10 +42,17 @@
     var p = personaId ? S.personaById(personaId) : null;
     return p ? { name: p.name, role: L(p.role) } : { name: 'mrwowo', role: t('lt.system') };
   }
-  function units(lot, n) { return num(n) + ' ' + unit(lot); }
+  /* Log entries: shop orders are made by a buyer, not by an operator. */
+  function whoOf(e) {
+    return e.type === 'order' ? { name: e.buyer || t('log.buyer'), role: t('log.buyer') } : who(e.persona);
+  }
+  function pack(lot) { return '<span class="pack">' + U.packArt(lot.art, lot.c1, lot.c2, lot.id) + '</span>'; }
+  function option(value, label, selected) {
+    return '<option value="' + esc(value) + '"' + (selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
 
   /* ======================================================================
-     Projection cache — recomputed when rules / decisions / splits change.
+     Projection cache — recomputed when rules / decisions / splits / orders change.
      ====================================================================== */
   var rev = 0;
   var cache = { rev: -1, lots: {} };
@@ -66,13 +74,16 @@
     var left = lot.daysLeft - day;
     var p = projected(lot);
     var removed = left <= safety;
+    var simDay = p.pf.status === 'approved' ? E.simulateLot(lot, p.pf.plan, rules, { until: day }) : null;
+    var remaining = simDay ? simDay.units.stock : lot.qty;
     return {
       lot: lot, left: left, safety: safety, removed: removed,
       zone: E.zone(left, safety),
       price: removed ? null : E.priceAt(lot, left, rules, { extraCut: p.pf.plan.extraCut || 0 }),
       pf: p.pf, proj: p.sim, base: p.base,
       recNow: E.recommend(lot, left, rules),
-      simDay: p.pf.status === 'approved' ? E.simulateLot(lot, p.pf.plan, rules, { until: day }) : null
+      simDay: simDay, remaining: remaining,
+      soldOut: !!simDay && remaining <= 0
     };
   }
 
@@ -101,45 +112,44 @@
   /* Count-up between renders (remembers the previous value per key). */
   var lastVals = {};
   var FMT = { num: num, signed: signed, money: money, short: short };
-  function countUp(el, key, value, fmt) {
-    if (!el) return;
-    el.__val = lastVals[key] != null ? lastVals[key] : 0;
-    lastVals[key] = value;
-    U.animateNumber(el, value, fmt);
-  }
   function countAll(scope) {
     $$('[data-count]', scope).forEach(function (el) {
-      countUp(el, el.dataset.count, +el.dataset.value, FMT[el.dataset.fmt] || short);
+      var key = el.dataset.count, value = +el.dataset.value;
+      el.__val = lastVals[key] != null ? lastVals[key] : 0;
+      lastVals[key] = value;
+      U.animateNumber(el, value, FMT[el.dataset.fmt] || short);
     });
   }
   function counter(key, value, fmt, cls) {
-    return '<b class="' + (cls || '') + '" data-count="' + key + '" data-value="' + value + '" data-fmt="' + (fmt || 'short') + '">' + (FMT[fmt] || short)(value) + '</b>';
+    return '<span class="' + (cls || '') + '" data-count="' + key + '" data-value="' + value + '" data-fmt="' + (fmt || 'short') + '">' + esc((FMT[fmt] || short)(value)) + '</span>';
+  }
+  function stat(label, valueHTML, sub, cls) {
+    return '<div class="stat' + (cls ? ' ' + cls : '') + '"><span class="label">' + esc(label) + '</span>' + valueHTML +
+      (sub != null ? '<span class="stat__s">' + esc(sub) + '</span>' : '') + '</div>';
   }
 
   /* ======================================================================
      Shared pieces
      ====================================================================== */
-  var STATUS_ICON = { pending: 'clock', approved: 'check', rejected: 'x' };
-  function statusPill(s) {
-    return '<span class="spill spill--' + s + '">' + icon(STATUS_ICON[s]) + esc(t('status.' + s)) + '</span>';
+  function statusTag(s) { return '<span class="status status--' + s + '">' + esc(t('status.' + s)) + '</span>'; }
+  function daysTag(vm) {
+    var txt = vm.left <= 0 ? t('days.expired') : t('days.short', { n: vm.left });
+    return '<span class="days z-' + vm.zone + '"><i class="dot"></i>' + esc(txt) + '</span>';
   }
-  function zonePill(left) {
-    return '<span class="zpill">' + esc(left <= 0 ? t('days.expired') : t('days.left', { n: left })) + '</span>';
-  }
-  function actionChip(a) {
+  function actTag(a) {
     var m = D.ACTIONS[a] || { icon: 'tag' };
-    return '<span class="achip achip--' + a + '">' + icon(m.icon) + esc(actLabel(a)) + '</span>';
+    return '<span class="act">' + icon(m.icon) + esc(actLabel(a)) + '</span>';
   }
-  function channelDot(id) { var c = E.channelById(id); return '<i class="cdot" style="--c:' + (c ? c.color : '#888') + '"></i>'; }
+  function channelDot(id) { var c = E.channelById(id); return '<i class="dot" style="--c:' + (c ? c.color : '#888') + '"></i>'; }
   function emptyState(ico, title, text, cta) {
-    return '<div class="empty">' + icon(ico, 'ico--lg') + '<h3>' + esc(title) + '</h3><p>' + esc(text) + '</p>' + (cta || '') + '</div>';
+    return '<div class="empty">' + icon(ico) + '<h3>' + esc(title) + '</h3><p>' + esc(text) + '</p>' + (cta || '') + '</div>';
   }
   function listingName(lot, channelId) {
     return E.brandVisible(channelId, R()) ? lot.brand + ' · ' + lotName(lot) : t('ch.listingHidden', { name: lotName(lot) });
   }
   function decisionNote(dec) { return dec && dec.note ? L(dec.note) : ''; }
-  function option(value, label, selected) {
-    return '<option value="' + esc(value) + '"' + (selected ? ' selected' : '') + '>' + esc(label) + '</option>';
+  function prodCell(lot, sub) {
+    return '<div class="prod">' + pack(lot) + '<div><b>' + esc(lotName(lot)) + '</b><span>' + esc(sub || (lot.brand + ' · ' + lot.lotNo)) + '</span></div></div>';
   }
 
   function logText(e) {
@@ -152,6 +162,7 @@
     if (v.split) v.split = v.split.map(function (s) { return chLabel(s.ch) + ' ' + num(s.n); }).join(', ');
     if (v.owner) v.owner = L(v.owner);
     if (typeof v.n === 'number') v.n = num(v.n);
+    if (typeof v.price === 'number') v.price = money(v.price);
     return t(e.msg.key, v);
   }
   function changeText(c) {
@@ -161,22 +172,21 @@
   }
 
   /* ======================================================================
-     Price chart (SVG, single series — the caption names it, no legend needed)
+     Price chart (single series — the caption names it, no legend)
      ====================================================================== */
   var chartMeta = {};
   var chartSeq = 0;
   function priceChart(lot, plan, rules, day, caption) {
-    var W = 640, H = 236, pl = 64, pr = 16, pt = 24, pb = 34;
+    var W = 640, H = 220, pl = 58, pr = 12, pt = 22, pb = 30;
     var safety = E.safetyDays(lot, rules);
     var removeDay = Math.max(0, lot.daysLeft - safety);
     var maxX = Math.max(12, Math.min(lot.daysLeft, removeDay + 8));
     var min = E.minPrice(lot.base, rules);
-    var yLo = Math.max(0, Math.floor(min.price * 0.82 / 1000) * 1000), yHi = lot.base * 1.07;
+    var yLo = Math.max(0, Math.floor(min.price * 0.82 / 1000) * 1000), yHi = lot.base * 1.08;
     function x(d) { return pl + (d / maxX) * (W - pl - pr); }
     function y(v) { return pt + (1 - (v - yLo) / (yHi - yLo)) * (H - pt - pb); }
 
-    var pts = [];
-    var end = Math.min(removeDay, maxX);
+    var pts = [], end = Math.min(removeDay, maxX);
     for (var d = 0; d <= end; d++) pts.push({ d: d, p: E.priceAt(lot, lot.daysLeft - d, rules, { extraCut: plan.extraCut || 0 }).price });
     var path = '', area = '';
     if (pts.length) {
@@ -195,9 +205,8 @@
     });
     var stepX = maxX > 60 ? 20 : (maxX > 30 ? 10 : 5);
     for (var tk = 0; tk <= maxX; tk += stepX) {
-      g += '<text class="ch-ax" x="' + x(tk) + '" y="' + (H - 10) + '" text-anchor="middle">' + esc(tk === 0 ? t('time.today') : '+' + tk) + '</text>';
+      g += '<text class="ch-ax" x="' + x(tk) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(tk === 0 ? t('time.todayShort') : '+' + tk) + '</text>';
     }
-    g += '<line class="ch-base" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(yLo) + '" y2="' + y(yLo) + '"/>';
     g += '<line class="ch-floor" x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(min.price) + '" y2="' + y(min.price) + '"/>';
     g += '<text class="ch-lab" x="' + (W - pr) + '" y="' + (y(min.price) + 15) + '" text-anchor="end">' +
       esc(min.binding === 'floor' ? t('chart.floor', { pct: rules.floorPct, price: money(min.price) }) : t('chart.capLine', { pct: rules.maxDiscountPct, price: money(min.price) })) + '</text>';
@@ -210,7 +219,7 @@
     if (day != null && day <= maxX) {
       var cur = day <= end ? pts[Math.min(day, pts.length - 1)] : null;
       g += '<line class="ch-now" x1="' + x(day) + '" x2="' + x(day) + '" y1="' + pt + '" y2="' + y(yLo) + '"/>';
-      if (cur) g += '<circle class="ch-dot" cx="' + x(day) + '" cy="' + y(cur.p) + '" r="5"/>';
+      if (cur) g += '<circle class="ch-dot" cx="' + x(day) + '" cy="' + y(cur.p) + '" r="4.5"/>';
     }
     g += '<line class="ch-cross" id="' + id + '-x" x1="0" x2="0" y1="' + pt + '" y2="' + y(yLo) + '" visibility="hidden"/>';
     g += '<rect class="ch-hit" data-chart="' + id + '" x="' + pl + '" y="' + pt + '" width="' + (W - pl - pr) + '" height="' + (H - pt - pb) + '"/>';
@@ -218,7 +227,6 @@
       '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(t('chart.aria', { name: lotName(lot), price: money(min.price), n: removeDay })) + '">' + g + '</svg></figure>';
   }
 
-  /* Chart crosshair + bar tooltips */
   var tip = $('#tip');
   function showTip(html, cx, cy) {
     tip.innerHTML = html;
@@ -264,7 +272,7 @@
      ====================================================================== */
   var ROUTES = {
     'luat': { render: renderRules },
-    'lo-hang': { render: renderBoard, update: updateBoard, time: true },
+    'lo-hang': { render: renderLots, update: updateLots, time: true },
     'duyet': { render: renderApprovals },
     'kenh': { render: renderChannels, update: updateChannels, time: true },
     'bao-cao': { render: renderReport, update: updateReport, time: true }
@@ -279,9 +287,9 @@
   function syncChrome() {
     $('#pageTitle').textContent = t('page.' + route.name);
     $('#pageSub').textContent = t('page.' + route.name + '.sub');
-    document.title = t('meta.appTitle', { page: t('page.' + route.name) });
-    $('#timebar').hidden = !ROUTES[route.name].time;
-    $$('.side__nav a').forEach(function (a) {
+    document.title = t('meta.sellerTitle', { page: t('page.' + route.name) });
+    $('#clock').hidden = !ROUTES[route.name].time;
+    $$('.nav__links a').forEach(function (a) {
       var on = a.dataset.route === route.name;
       a.classList.toggle('is-active', on);
       if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -311,7 +319,7 @@
   var dayRange = $('#dayRange');
   var playTimer = null;
 
-  function syncTimebar() {
+  function syncClock() {
     var d = st().day;
     dayRange.value = d;
     U.paintRange(dayRange);
@@ -322,10 +330,10 @@
 
   function setDay(d) {
     d = Math.max(0, Math.min(60, d | 0));
-    if (d === st().day) { syncTimebar(); return; }
+    if (d === st().day) { syncClock(); return; }
     st().day = d;
     S.save();
-    syncTimebar();
+    syncClock();
     var r = ROUTES[route.name];
     if (r.update) r.update(); else render();
     if (drawerLot) renderDrawer(drawerLot);
@@ -333,25 +341,48 @@
 
   function togglePlay(force) {
     var on = force != null ? force : !playTimer;
-    if (!on) { clearInterval(playTimer); playTimer = null; syncTimebar(); return; }
+    if (!on) { clearInterval(playTimer); playTimer = null; syncClock(); return; }
     if (st().day >= 60) setDay(0);
     playTimer = setInterval(function () {
       if (st().day >= 60) { togglePlay(false); renderTour(); return; }
       setDay(st().day + 1);
     }, U.reduced ? 900 : 420);
-    syncTimebar();
+    syncClock();
   }
 
   dayRange.addEventListener('input', function () { setDay(+dayRange.value); });
 
   /* ======================================================================
-     SCREEN 2 — LOT BOARD
+     SCREEN 2 — LOTS
      ====================================================================== */
   var ZONES = ['all', 'ok', 'watch', 'act', 'urgent', 'removed'];
-  var renderedIds = '';
-  var prevCard = {};
+  var STATUS_ORDER = { pending: 0, approved: 1, rejected: 2 };
+  var COLS = [
+    { key: 'name', label: 'col.product' },
+    { key: 'days', label: 'col.left' },
+    { key: 'stock', label: 'col.stock', num: true },
+    { key: 'price', label: 'col.now', num: true },
+    { key: 'value', label: 'col.value', num: true },
+    { key: 'action', label: 'col.action' },
+    { key: 'status', label: 'col.status' }
+  ];
+  var prevPrice = {};
 
   function zoneKey(z) { return z === 'expired' ? 'removed' : z; }
+  function shownAction(vm) { return vm.pf.status === 'approved' ? vm.pf.action : vm.recNow.action; }
+
+  function sortValue(vm, key) {
+    switch (key) {
+      case 'name': return lotName(vm.lot).toLowerCase();
+      case 'days': return vm.left;
+      case 'stock': return vm.remaining;
+      case 'value': return vm.remaining * vm.lot.base;
+      case 'price': return vm.price && !vm.soldOut ? vm.price.price : Infinity;
+      case 'action': return actLabel(shownAction(vm)).toLowerCase();
+      case 'status': return STATUS_ORDER[vm.pf.status];
+      default: return vm.left;
+    }
+  }
 
   function boardLots(day) {
     var ui = st().ui;
@@ -363,206 +394,133 @@
     var list = all.filter(function (vm) {
       if (ui.filter !== 'all' && zoneKey(vm.zone) !== ui.filter) return false;
       if (ui.cat && vm.lot.cat !== ui.cat) return false;
-      if (ui.wh && vm.lot.warehouse !== ui.wh) return false;
       if (q && [lotName(vm.lot), vm.lot.brand, vm.lot.sku, vm.lot.lotNo].join(' ').toLowerCase().indexOf(q) === -1) return false;
       return true;
     });
+    var key = ui.sort.key, dir = ui.sort.dir === 'desc' ? -1 : 1;
     list.sort(function (a, b) {
-      if (ui.sort === 'value') return b.lot.qty * b.lot.base - a.lot.qty * a.lot.base;
-      if (ui.sort === 'status') return (a.pf.status === 'pending' ? 0 : 1) - (b.pf.status === 'pending' ? 0 : 1) || a.left - b.left;
-      return a.left - b.left;
+      var va = sortValue(a, key), vb = sortValue(b, key);
+      var c = typeof va === 'string' ? va.localeCompare(vb) : (va === vb ? 0 : (va < vb ? -1 : 1));
+      return c * dir || a.left - b.left || a.lot.id.localeCompare(b.lot.id);
     });
     return { list: list, counts: counts, all: all };
   }
 
-  function boardKpis(day, all) {
+  function lotStats(day, all) {
     var tt = portfolio(day);
     var needs = all.filter(function (vm) { return vm.zone === 'act' || vm.zone === 'urgent'; }).length;
     var removed = all.filter(function (vm) { return vm.removed; }).length;
-    var floor = all.filter(function (vm) { return vm.price && vm.price.atFloor; }).length;
-    return [
-      { key: 'k-value', label: t('kpi.value'), sub: t('kpi.value.sub', { n: D.LOTS.length }), value: tt.value, fmt: 'short', ico: 'box' },
-      { key: 'k-needs', label: t('kpi.needs'), sub: t('kpi.needs.sub'), value: needs, fmt: 'num', ico: 'alert', tone: needs ? 'warn' : '' },
-      { key: 'k-floor', label: t('kpi.floor'), sub: t('kpi.floor.sub'), value: floor, fmt: 'num', ico: 'shield' },
-      { key: 'k-removed', label: t('kpi.removed'), sub: t('kpi.removed.sub'), value: removed, fmt: 'num', ico: 'lock', tone: removed ? 'danger' : '' },
-      { key: 'k-net', label: t('kpi.net', { when: I.when(day) }), sub: tt.approved ? t('kpi.net.sub', { n: tt.approved }) : t('kpi.net.none'), value: tt.toDay, fmt: 'short', ico: 'coins', tone: 'hero' }
-    ];
+    var floor = all.filter(function (vm) { return vm.price && vm.price.atFloor && !vm.soldOut; }).length;
+    return stat(t('kpi.value'), counter('k-value', tt.value, 'short', 'stat__v'), t('kpi.value.sub', { n: D.LOTS.length })) +
+      stat(t('kpi.needs'), counter('k-needs', needs, 'num', 'stat__v'), t('kpi.needs.sub')) +
+      stat(t('kpi.floor'), counter('k-floor', floor, 'num', 'stat__v'), t('kpi.floor.sub')) +
+      stat(t('kpi.removed'), counter('k-removed', removed, 'num', 'stat__v'), t('kpi.removed.sub')) +
+      stat(t('kpi.proj'), counter('k-net', tt.net, 'short', 'stat__v'), tt.approved ? t('kpi.proj.sub', { v: short(tt.toDay), when: I.when(day) }) : t('kpi.net.none'), 'stat--accent');
   }
 
-  function kpiHTML(k) {
-    return '<div class="kpi' + (k.tone ? ' kpi--' + k.tone : '') + '">' +
-      '<span class="kpi__ico">' + icon(k.ico) + '</span>' +
-      '<div><span class="kpi__label">' + esc(k.label) + '</span>' + counter(k.key, k.value, k.fmt, 'kpi__val') +
-      '<span class="kpi__sub">' + esc(k.sub) + '</span></div></div>';
-  }
-
-  function renderBoard() {
-    var ui = st().ui, day = st().day, safety = R().safetyDays.kho;
+  function renderLots() {
+    var ui = st().ui, day = st().day;
     var b = boardLots(day);
     var cats = option('', t('board.allCats'), !ui.cat) + Object.keys(D.CATEGORIES).map(function (k) { return option(k, L(D.CATEGORIES[k].label), ui.cat === k); }).join('');
-    var whs = option('', t('board.allWh'), !ui.wh) + Object.keys(D.WAREHOUSES).map(function (k) { return option(k, whLabel(k), ui.wh === k); }).join('');
-    var sorts = ['days', 'value', 'status'].map(function (k) { return option(k, t('sort.' + k), ui.sort === k); }).join('');
-
     view.innerHTML =
-      '<div class="kpis" id="boardKpis">' + boardKpis(day, b.all).map(kpiHTML).join('') + '</div>' +
-      '<div class="toolbar">' +
-        '<div class="chips" role="group" aria-label="' + esc(t('board.filter')) + '" id="zoneChips">' + zoneChips(b.counts) + '</div>' +
-        '<div class="toolbar__right">' +
-          '<label class="search">' + icon('search', 'ico--sm') + '<span class="sr-only">' + esc(t('board.search')) + '</span><input class="input" id="boardSearch" type="search" placeholder="' + esc(t('board.search')) + '" value="' + esc(ui.q) + '"></label>' +
-          '<select class="select select--sm" id="boardCat" aria-label="' + esc(t('board.allCats')) + '">' + cats + '</select>' +
-          '<select class="select select--sm" id="boardWh" aria-label="' + esc(t('board.allWh')) + '">' + whs + '</select>' +
-          '<select class="select select--sm" id="boardSort" aria-label="' + esc(t('board.sort')) + '">' + sorts + '</select>' +
-          '<div class="seg" role="group" aria-label="' + esc(t('view.label')) + '">' +
-            '<button data-action="view" data-v="grid" aria-pressed="' + (ui.view === 'grid') + '" title="' + esc(t('view.grid')) + '">' + icon('grid', 'ico--sm') + '<span class="sr-only">' + esc(t('view.grid')) + '</span></button>' +
-            '<button data-action="view" data-v="table" aria-pressed="' + (ui.view === 'table') + '" title="' + esc(t('view.table')) + '">' + icon('list', 'ico--sm') + '<span class="sr-only">' + esc(t('view.table')) + '</span></button>' +
+      '<section class="stats" id="lotStats">' + lotStats(day, b.all) + '</section>' +
+      '<section class="card">' +
+        '<div class="toolbar">' +
+          '<div class="seg" role="group" aria-label="' + esc(t('board.filter')) + '" id="zoneSeg">' + zoneSeg(b.counts) + '</div>' +
+          '<div class="toolbar__right">' +
+            '<label class="search">' + icon('search', 'ico--sm') + '<span class="sr-only">' + esc(t('board.search')) + '</span><input class="input input--sm" id="lotSearch" type="search" placeholder="' + esc(t('board.search')) + '" value="' + esc(ui.q) + '"></label>' +
+            '<select class="select select--sm" id="lotCat" aria-label="' + esc(t('board.allCats')) + '">' + cats + '</select>' +
+            '<div class="seg viewsw" role="group" aria-label="' + esc(t('view.label')) + '">' +
+              '<button data-action="view" data-v="table" aria-pressed="' + (ui.view === 'table') + '" title="' + esc(t('view.table')) + '">' + icon('list', 'ico--sm') + '<span class="sr-only">' + esc(t('view.table')) + '</span></button>' +
+              '<button data-action="view" data-v="cards" aria-pressed="' + (ui.view === 'cards') + '" title="' + esc(t('view.cards')) + '">' + icon('grid', 'ico--sm') + '<span class="sr-only">' + esc(t('view.cards')) + '</span></button>' +
+            '</div>' +
           '</div>' +
         '</div>' +
-      '</div>' +
-      '<div id="boardList"></div>' +
-      '<div class="legend">' +
-        '<span class="legend__t">' + esc(t('legend.title', { n: safety })) + '</span>' +
-        legendZone('ok', '> ' + (safety + 60)) + legendZone('watch', (safety + 31) + '–' + (safety + 60)) +
-        legendZone('act', (safety + 16) + '–' + (safety + 30)) + legendZone('urgent', (safety + 1) + '–' + (safety + 15)) +
-        legendZone('removed', t('legend.removed', { n: safety })) +
-        '<span class="sample-note">' + esc(t('common.sample')) + '</span>' +
-      '</div>';
+        '<div id="lotList"></div>' +
+      '</section>' +
+      '<p class="sample-note">' + esc(t('legend.note', { n: R().safetyDays.kho })) + '</p>';
+    paintLots(b);
+    countAll($('#lotStats'));
 
-    renderedIds = '';
-    paintBoardList(b);
-    countAll($('#boardKpis'));
-
-    function refilter() { S.save(); paintBoardList(boardLots(st().day), true); }
-    $('#boardSearch').addEventListener('input', function (e) { ui.q = e.target.value; refilter(); });
-    $('#boardCat').addEventListener('change', function (e) { ui.cat = e.target.value; refilter(); });
-    $('#boardWh').addEventListener('change', function (e) { ui.wh = e.target.value; refilter(); });
-    $('#boardSort').addEventListener('change', function (e) { ui.sort = e.target.value; refilter(); });
+    function refilter() { S.save(); paintLots(boardLots(st().day)); }
+    $('#lotSearch').addEventListener('input', function (e) { ui.q = e.target.value; refilter(); });
+    $('#lotCat').addEventListener('change', function (e) { ui.cat = e.target.value; refilter(); });
   }
 
-  function legendZone(z, txt) { return '<span class="legend__i z-' + z + '"><i></i>' + esc(txt) + '</span>'; }
-
-  function zoneChips(counts) {
+  function zoneSeg(counts) {
     var ui = st().ui;
     return ZONES.map(function (z) {
-      return '<button class="chip chip--' + z + '" data-action="zone" data-z="' + z + '" aria-pressed="' + (ui.filter === z) + '">' +
-        (z !== 'all' ? '<i class="chip__dot"></i>' : '') + esc(t('zone.' + z)) + ' <span class="chip__n">' + (counts[z] || 0) + '</span></button>';
+      return '<button data-action="zone" data-z="' + z + '" aria-pressed="' + (ui.filter === z) + '">' +
+        (z !== 'all' ? '<i class="dot z-' + z + '" style="background:var(--zc)"></i>' : '') + esc(t('zone.' + z)) + ' <span class="seg__n">' + (counts[z] || 0) + '</span></button>';
     }).join('');
   }
 
-  function paintBoardList(b, force) {
-    var ui = st().ui;
-    var wrap = $('#boardList');
+  function priceCell(vm) {
+    if (vm.soldOut) return '<span class="muted">' + esc(t('card.soldOut')) + '</span>';
+    if (vm.removed) return '<span class="neg">' + esc(t('card.pulled')) + '</span>';
+    var p = vm.price, changed = prevPrice[vm.lot.id] != null && prevPrice[vm.lot.id] !== p.price;
+    prevPrice[vm.lot.id] = p.price;
+    return '<span class="price"><b class="' + (changed ? 'tick' : '') + '">' + esc(money(p.price)) + '</b>' +
+      '<span class="cut' + (p.atFloor ? ' is-floor' : '') + '">' + (p.cutPct ? '−' + Math.round(p.cutPct) + '%' + (p.atFloor ? ' · ' + esc(t('flag.floor')) : '') : esc(t('card.list'))) + '</span></span>';
+  }
+
+  /* Remaining stock (simulated for approved lots) over the starting quantity. */
+  function stockCell(vm) {
+    var left = vm.simDay ? vm.remaining : vm.lot.qty;
+    return '<span class="stock"><span><b>' + esc(num(left)) + '</b> <small>' + esc(t('stock.of', { n: num(vm.lot.qty) })) + '</small></span>' +
+      (vm.simDay ? '<span class="prog"><i style="width:' + Math.round((vm.lot.qty - left) / vm.lot.qty * 100) + '%"></i></span>' : '') + '</span>';
+  }
+
+  function paintLots(b) {
+    var ui = st().ui, wrap = $('#lotList');
     if (!wrap) return;
-    var ids = ui.view + ':' + I.lang() + ':' + b.list.map(function (vm) { return vm.lot.id; }).join(',');
     if (!b.list.length) {
       wrap.innerHTML = emptyState('search', t('empty.board'), t('empty.board.text'),
         '<button class="btn btn--outline btn--sm" data-action="clear-filters">' + esc(t('empty.clear')) + '</button>');
-      renderedIds = ids;
+      U.hydrateIcons(wrap);
       return;
     }
-    if (ui.view === 'table') {
-      wrap.innerHTML = boardTable(b.list);
-      renderedIds = ids;
-      return;
-    }
-    if (force || ids !== renderedIds) {
+    // Phones always get cards: the 7-column table does not fit.
+    if (ui.view === 'cards' || window.matchMedia('(max-width: 600px)').matches) {
       wrap.innerHTML = '<div class="lots">' + b.list.map(function (vm) {
-        return '<article class="lot z-' + vm.zone + '" data-lot="' + vm.lot.id + '" tabindex="0" aria-label="' + esc(lotName(vm.lot)) + '">' + cardInner(vm, false) + '</article>';
+        return '<article class="lot z-' + vm.zone + '" data-lot="' + vm.lot.id + '" tabindex="0">' +
+          '<div class="lot__top">' + daysTag(vm) + statusTag(vm.pf.status) + '</div>' +
+          '<div class="lot__main">' + pack(vm.lot) + '<div><b>' + esc(lotName(vm.lot)) + '</b><span>' + esc(vm.lot.brand + ' · ' + vm.lot.lotNo) + '</span></div></div>' +
+          '<div class="lot__row">' + priceCell(vm) + '<span class="small muted">' + stockCell(vm) + '</span></div>' +
+          '<div class="lot__row">' + actTag(shownAction(vm)) + '</div>' +
+        '</article>';
       }).join('') + '</div>';
-      renderedIds = ids;
-      b.list.forEach(function (vm) { prevCard[vm.lot.id] = { price: vm.price && vm.price.price, zone: vm.zone }; });
       return;
     }
-    // Patch each card in place so colours transition and the price "ticks" down.
-    b.list.forEach(function (vm) {
-      var el = wrap.querySelector('[data-lot="' + vm.lot.id + '"]');
-      if (!el) return;
-      var prev = prevCard[vm.lot.id] || {};
-      var priceNow = vm.price && vm.price.price;
-      var changed = prev.price != null && priceNow != null && priceNow !== prev.price;
-      var justRemoved = prev.zone && prev.zone !== 'removed' && prev.zone !== 'expired' && vm.removed;
-      el.className = 'lot z-' + vm.zone + (justRemoved ? ' is-just-removed' : '');
-      el.innerHTML = cardInner(vm, changed);
-      prevCard[vm.lot.id] = { price: priceNow, zone: vm.zone };
-    });
+    var s = ui.sort;
+    wrap.innerHTML = '<div class="tablewrap"><table class="tbl tbl--hover"><thead><tr>' + COLS.map(function (c) {
+      var on = s.key === c.key;
+      return '<th' + (c.num ? ' class="num"' : '') + ' aria-sort="' + (on ? (s.dir === 'asc' ? 'ascending' : 'descending') : 'none') + '">' +
+        '<button class="sortbtn" data-action="sort" data-k="' + c.key + '">' + esc(t(c.label)) + icon(on ? (s.dir === 'asc' ? 'sort-up' : 'sort-down') : 'sort') + '</button></th>';
+    }).join('') + '</tr></thead><tbody>' + b.list.map(function (vm) {
+      return '<tr data-lot="' + vm.lot.id + '" tabindex="0" class="' + (vm.soldOut || vm.left <= 0 ? 'is-dim' : '') + '">' +
+        '<td>' + prodCell(vm.lot) + '</td>' +
+        '<td>' + daysTag(vm) + '</td>' +
+        '<td class="num">' + stockCell(vm) + '</td>' +
+        '<td class="num">' + priceCell(vm) + '</td>' +
+        '<td class="num mono">' + esc(short(vm.remaining * vm.lot.base)) + '</td>' +
+        '<td>' + actTag(shownAction(vm)) + '</td>' +
+        '<td>' + statusTag(vm.pf.status) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
   }
 
-  function cardInner(vm, tick) {
-    var lot = vm.lot, pf = vm.pf;
-    var floorPos = E.minPrice(lot.base, R()).price / lot.base * 100;
-    var price;
-    if (vm.removed) {
-      price = '<div class="lot__price is-off"><strong>' + esc(t('card.pulled')) + '</strong><s>' + esc(money(lot.base)) + '</s></div>' +
-        '<div class="rail rail--off"><i class="rail__floor" data-label="' + esc(t('card.floor')) + '" style="left:' + floorPos + '%"></i></div>';
-    } else {
-      var p = vm.price;
-      price = '<div class="lot__price"><strong class="' + (tick ? 'is-tick' : '') + '">' + esc(money(p.price)) + '</strong>' +
-        (p.cutPct ? '<s>' + esc(money(lot.base)) + '</s><span class="lot__cut">−' + Math.round(p.cutPct) + '%</span>' : '<span class="lot__list">' + esc(t('card.list')) + '</span>') + '</div>' +
-        '<div class="rail" title="' + esc(t('card.railTitle')) + '"><i class="rail__floor" data-label="' + esc(t('card.floor')) + '" style="left:' + floorPos + '%"></i>' +
-        '<i class="rail__pin" style="left:' + (p.price / lot.base * 100) + '%"></i></div>';
-    }
-
-    var foot;
-    if (pf.status === 'approved') {
-      var s = vm.simDay;
-      var done = s.units.sold + s.units.donated + s.units.returned + s.units.destroyed;
-      foot = '<div class="lot__foot">' + actionChip(pf.action) + '</div>' +
-        '<div class="prog"><i style="width:' + Math.round(done / lot.qty * 100) + '%"></i></div>' +
-        '<p class="lot__progress">' + esc(t('card.handled', { done: num(done), qty: units(lot, lot.qty), net: short(s.money.net) })) + '</p>';
-    } else {
-      foot = '<div class="lot__foot">' + actionChip(vm.recNow.action) + '</div>';
-    }
-
-    var flags = '';
-    if (vm.removed) flags += '<span class="flag flag--danger">' + icon('lock') + esc(t('flag.removed')) + '</span>';
-    else if (vm.price && vm.price.atFloor) flags += '<span class="flag flag--floor">' + icon('shield') + esc(t('flag.floor')) + '</span>';
-    if (pf.status === 'approved' && vm.simDay.units.stock <= 0) flags += '<span class="flag flag--ok">' + icon('check') + esc(t('flag.done')) + '</span>';
-
-    return '<div class="lot__top">' + zonePill(vm.left) + statusPill(pf.status) + '</div>' +
-      '<h3 class="lot__name">' + esc(lotName(lot)) + '</h3>' +
-      '<p class="lot__meta">' + esc(lot.brand) + ' · <span class="mono">' + esc(lot.lotNo) + '</span></p>' +
-      '<p class="lot__meta">' + esc(units(lot, lot.qty)) + ' · ' + esc(t('card.exp')) + ' ' + esc(I.date(S.expiryOf(lot))) + ' · ' + esc(whLabel(lot.warehouse)) + '</p>' +
-      price + foot + (flags ? '<div class="lot__flags">' + flags + '</div>' : '');
-  }
-
-  function boardTable(list) {
-    return '<div class="tablewrap"><table class="tbl tbl--board"><thead><tr>' +
-      ['col.product', 'col.exp', 'col.left', 'col.stock', 'col.list', 'col.now', 'col.action', 'col.status'].map(function (k, i) {
-        return '<th' + (i >= 2 && i <= 5 ? ' class="num"' : '') + '>' + esc(t(k)) + '</th>';
-      }).join('') + '</tr></thead><tbody>' + list.map(function (vm) {
-        var lot = vm.lot;
-        return '<tr class="z-' + vm.zone + '" data-lot="' + lot.id + '" tabindex="0">' +
-          '<td><div class="cell-lot"><i class="zbar"></i><div><b>' + esc(lotName(lot)) + '</b><span class="muted">' + esc(lot.brand) + ' · ' + esc(lot.lotNo) + '</span></div></div></td>' +
-          '<td>' + esc(I.date(S.expiryOf(lot))) + '</td>' +
-          '<td class="num"><span class="zpill">' + esc(t('days.n', { n: vm.left })) + '</span></td>' +
-          '<td class="num">' + esc(units(lot, lot.qty)) + '</td>' +
-          '<td class="num">' + esc(money(lot.base)) + '</td>' +
-          '<td class="num"><b>' + esc(vm.removed ? t('card.pulled') : money(vm.price.price)) + '</b>' + (vm.price && vm.price.atFloor ? '<br><small class="muted">' + esc(t('flag.floor')) + '</small>' : '') + '</td>' +
-          '<td>' + actionChip(vm.pf.status === 'approved' ? vm.pf.action : vm.recNow.action) + '</td>' +
-          '<td>' + statusPill(vm.pf.status) + '</td></tr>';
-      }).join('') + '</tbody></table></div>';
-  }
-
-  function updateBoard() {
-    var day = st().day;
-    var b = boardLots(day);
-    var k = $('#boardKpis');
-    if (k) {
-      var ks = boardKpis(day, b.all);
-      $$('.kpi', k).forEach(function (node, i) {
-        var kp = ks[i];
-        node.className = 'kpi' + (kp.tone ? ' kpi--' + kp.tone : '');
-        $('.kpi__label', node).textContent = kp.label;
-        $('.kpi__sub', node).textContent = kp.sub;
-        countUp($('.kpi__val', node), kp.key, kp.value, FMT[kp.fmt]);
-      });
-    }
-    var chips = $('#zoneChips');
-    if (chips) chips.innerHTML = zoneChips(b.counts);
-    paintBoardList(b, false);
+  function updateLots() {
+    var b = boardLots(st().day);
+    var stats = $('#lotStats');
+    if (stats) { stats.innerHTML = lotStats(st().day, b.all); countAll(stats); }
+    var seg = $('#zoneSeg');
+    if (seg) seg.innerHTML = zoneSeg(b.counts);
+    paintLots(b);
+    U.hydrateIcons($('#lotList'));
   }
 
   /* ======================================================================
-     Lot drawer
+     Lot sheet
      ====================================================================== */
   var drawerLot = null, drawerReturn = null;
   function openDrawer(id) {
@@ -571,13 +529,13 @@
     drawerLot = lot;
     drawerReturn = document.activeElement;
     renderDrawer(lot);
-    $('#lotDrawer').hidden = false;
+    $('#lotSheet').hidden = false;
     document.body.classList.add('is-locked');
-    var c = $('#lotDrawer .ld__top .icon-btn');
+    var c = $('#lotSheet .sheet__head .icon-btn');
     if (c) c.focus();
   }
   function closeDrawer(silent) {
-    var d = $('#lotDrawer');
+    var d = $('#lotSheet');
     if (d.hidden) return;
     d.hidden = true;
     drawerLot = null;
@@ -589,50 +547,44 @@
   function renderDrawer(lot) {
     var day = st().day, vm = lotVM(lot, day), pf = vm.pf;
     var g = E.guard(lot, pf.plan, lot.daysLeft, R());
-    var rec = vm.recNow;
     var dec = pf.decision;
     var diff = vm.proj.money.net - vm.base.net;
-    $('#lotDrawerBody').innerHTML =
-      '<header class="ld__head z-' + vm.zone + '">' +
-        '<div class="ld__top">' + zonePill(vm.left) + statusPill(pf.status) +
+    $('#lotSheetBody').innerHTML =
+      '<div class="sheet__head"><div class="prod">' + pack(lot) + '<div><h2 id="lotSheetTitle">' + esc(lotName(lot)) + '</h2><span>' + esc(lot.brand + ' · ' + L(D.CATEGORIES[lot.cat].label)) + '</span></div></div>' +
         '<button class="icon-btn icon-btn--sm" data-action="drawer-close" aria-label="' + esc(t('common.close')) + '">' + icon('x') + '</button></div>' +
-        '<h2 id="lotDrawerTitle">' + esc(lotName(lot)) + '</h2>' +
-        '<p class="muted">' + esc(lot.brand) + ' · ' + esc(L(D.CATEGORIES[lot.cat].label)) + ' · ' + esc(L(D.STORAGE[lot.storage].label)) + '</p>' +
-      '</header>' +
-      '<div class="ld__body">' +
+      '<div class="sheet__body">' +
+        '<div class="head" style="margin-bottom:var(--s4)">' + daysTag(vm) + statusTag(pf.status) + '</div>' +
         '<dl class="facts">' +
           fact('fact.sku', lot.sku) + fact('fact.lot', lot.lotNo) + fact('fact.exp', I.date(S.expiryOf(lot))) +
-          fact('fact.left', t('fact.leftVal', { n: vm.left, when: I.when(day) })) + fact('fact.stock', units(lot, lot.qty)) +
+          fact('fact.stock', vm.simDay ? num(vm.remaining) + ' / ' + units(lot, lot.qty) : units(lot, lot.qty)) +
           fact('fact.wh', whLabel(lot.warehouse)) + fact('fact.list', money(lot.base)) +
           fact('fact.now', vm.removed ? t('fact.pulled') : money(vm.price.price) + (vm.price.cutPct ? ' (−' + Math.round(vm.price.cutPct) + '%)' : '')) +
+          fact('fact.why', L(lot.story)) +
         '</dl>' +
-        '<p class="ld__story">' + icon('info', 'ico--sm') + '<span>' + esc(L(lot.story)) + '</span></p>' +
         priceChart(lot, pf.plan, R(), day) +
-        '<section class="ld__sec"><h3>' + esc(pf.status === 'approved' ? t('dr.approved') : t('dr.proposal', { when: I.when(day) })) + '</h3>' +
-          '<div class="ld__act">' + actionChip(pf.status === 'approved' ? pf.action : rec.action) + '</div>' +
-          '<ul class="reasons">' + rec.reasons.map(function (r) { return '<li>' + esc(tm(r)) + '</li>'; }).join('') + '</ul>' +
-          (dec ? '<p class="muted small">' + esc(t('dr.decided', { verb: t('verb.' + dec.status), name: who(dec.persona).name, time: I.dateTime(dec.at) })) + (decisionNote(dec) ? ' — “' + esc(decisionNote(dec)) + '”' : '') + '</p>' : '') +
-        '</section>' +
-        '<section class="ld__sec"><h3>' + esc(t('dr.checks')) + '</h3>' + guardList(g) + '</section>' +
-        '<section class="ld__money">' +
+        '<div class="sec"><h3>' + esc(pf.status === 'approved' ? t('dr.approved') : t('dr.proposal', { when: I.when(day) })) + ' · ' + esc(actLabel(shownAction(vm))) + '</h3>' +
+          '<ul class="reasons">' + vm.recNow.reasons.map(function (r) { return '<li>' + esc(tm(r)) + '</li>'; }).join('') + '</ul>' +
+          (dec ? '<p class="small muted" style="margin-top:8px">' + esc(t('dr.decided', { verb: t('verb.' + dec.status), name: who(dec.persona).name, time: I.dateTime(dec.at) })) + (decisionNote(dec) ? ' — “' + esc(decisionNote(dec)) + '”' : '') + '</p>' : '') +
+        '</div>' +
+        '<div class="sec"><h3>' + esc(t('dr.checks')) + '</h3>' + guardList(g) + '</div>' +
+        '<div class="trio">' +
           '<div><span>' + esc(t('dr.net')) + '</span><b>' + esc(short(vm.proj.money.net)) + '</b></div>' +
           '<div><span>' + esc(t('dr.base')) + '</span><b>' + esc(short(vm.base.net)) + '</b></div>' +
           '<div><span>' + esc(t('dr.diff')) + '</span><b class="' + (diff >= 0 ? 'pos' : 'neg') + '">' + esc(signed(diff)) + '</b></div>' +
-        '</section>' +
+        '</div>' +
       '</div>' +
-      '<footer class="ld__foot">' +
+      '<div class="sheet__foot">' +
         (pf.status === 'pending' ? '<a class="btn btn--primary btn--sm" href="#/duyet" data-focus-lot="' + lot.id + '">' + icon('approve', 'ico--sm') + esc(t('dr.goApprove')) + '</a>' : '') +
         '<a class="btn btn--outline btn--sm" href="#/kenh/' + lot.id + '">' + icon('split', 'ico--sm') + esc(t('dr.channels')) + '</a>' +
         '<a class="btn btn--outline btn--sm" href="#/bao-cao/' + lot.id + '">' + icon('report', 'ico--sm') + esc(t('dr.record')) + '</a>' +
-      '</footer>';
+      '</div>';
   }
 
-  function guardList(g, compact) {
-    return '<ul class="guard' + (compact ? ' guard--compact' : '') + '">' + g.checks.map(function (c) {
-      var detail = tm(c.detail);
-      return '<li class="guard__i ' + (c.ok ? (c.info ? 'is-info' : 'is-ok') : 'is-fail') + '" title="' + esc(detail) + '">' +
+  function guardList(g) {
+    return '<ul class="guard">' + g.checks.map(function (c) {
+      return '<li class="guard__i ' + (c.ok ? (c.info ? 'is-info' : 'is-ok') : 'is-fail') + '">' +
         icon(c.ok ? (c.info ? 'info' : 'check-circle') : 'x-circle') +
-        '<div><b>' + esc(tm(c.label)) + '</b><span>' + esc(detail) + '</span></div></li>';
+        '<div><b>' + esc(tm(c.label)) + '</b><span>' + esc(tm(c.detail)) + '</span></div></li>';
     }).join('') + '</ul>';
   }
 
@@ -640,6 +592,7 @@
      SCREEN 3 — APPROVALS
      ====================================================================== */
   var drafts = {};
+  var openRows = {};
   var focusLot = null;
 
   function draftFor(lot) {
@@ -668,25 +621,26 @@
     var tt = portfolio(null);
 
     var empty = tab === 'pending'
-      ? emptyState('check-circle', t('ap.empty.pending'), t('ap.empty.pending.text'), '<a class="btn btn--primary btn--sm" href="#/bao-cao">' + esc(t('ap.empty.pending.cta')) + '</a>')
+      ? emptyState('check-circle', t('ap.empty.pending'), t('ap.empty.pending.text'), '<a class="btn btn--outline btn--sm" href="#/bao-cao">' + esc(t('ap.empty.pending.cta')) + '</a>')
       : emptyState('file', t('ap.empty.other'), t('ap.empty.other.text'));
 
     view.innerHTML =
-      '<div class="appr-head">' +
-        '<div class="tabs" role="tablist">' +
-          ['pending', 'approved', 'rejected'].map(function (k) {
-            return '<button role="tab" class="tab" data-action="appr-tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + esc(t('ap.tab.' + k)) + ' <span class="tab__n">' + groups[k].length + '</span></button>';
-          }).join('') +
+      '<section class="stats" style="grid-template-columns:repeat(3,minmax(0,1fr))">' +
+        stat(t('ap.kpi.net'), counter('ap-net', tt.net, 'short', 'stat__v'), t('ap.kpi.netSub', { n: tt.approved })) +
+        stat(t('ap.kpi.pot'), counter('ap-pot', tt.potential, 'signed', 'stat__v'), t('ap.kpi.potSub', { n: tt.pending }), 'stat--accent') +
+        stat(t('ap.kpi.valid'), counter('ap-valid', valid, 'num', 'stat__v'), t('ap.kpi.validSub')) +
+      '</section>' +
+      (!p.canApprove ? '<div class="banner">' + icon('lock') + '<p>' + esc(t('ap.viewOnly', { name: p.name, role: L(p.role) })) + '</p></div>' : '') +
+      '<section class="card">' +
+        '<div class="card__head">' +
+          '<div class="seg" role="tablist">' + ['pending', 'approved', 'rejected'].map(function (k) {
+            return '<button role="tab" data-action="appr-tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + esc(t('ap.tab.' + k)) + ' <span class="seg__n">' + groups[k].length + '</span></button>';
+          }).join('') + '</div>' +
+          (tab === 'pending' && groups.pending.length ? '<button class="btn btn--accent btn--sm" data-action="approve-all"' + (p.canApprove && valid ? '' : ' aria-disabled="true"') + '>' + icon('check', 'ico--sm') + esc(t('ap.approveAll', { n: valid })) + '</button>' : '') +
         '</div>' +
-        '<div class="appr-head__right">' +
-          '<div class="mini-kpi"><span>' + esc(t('ap.kpi.net')) + '</span>' + counter('ap-net', tt.net, 'short') + '</div>' +
-          '<div class="mini-kpi"><span>' + esc(t('ap.kpi.pot')) + '</span>' + counter('ap-pot', tt.potential, 'signed', 'pos') + '</div>' +
-          (tab === 'pending' && groups.pending.length ? '<button class="btn btn--primary btn--sm" data-action="approve-all"' + (p.canApprove && valid ? '' : ' aria-disabled="true"') + '>' + icon('approve', 'ico--sm') + esc(t('ap.approveAll', { n: valid })) + '</button>' : '') +
-        '</div>' +
-      '</div>' +
-      (!p.canApprove ? '<div class="banner banner--info">' + icon('lock') + '<p>' + esc(t('ap.viewOnly', { name: p.name, role: L(p.role) })) + '</p></div>' : '') +
-      (tab === 'pending' && groups.pending.length ? '<div class="banner">' + icon('shield') + '<p>' + esc(t('ap.banner')) + '</p></div>' : '') +
-      '<div class="appr-list">' + (groups[tab].length ? groups[tab].map(function (l) { return apprItem(l, tab); }).join('') : empty) + '</div>';
+        (tab === 'pending' && groups.pending.length ? '<p class="small muted" style="padding:10px var(--s5);border-bottom:1px solid var(--line)">' + esc(t('ap.hint')) + '</p>' : '') +
+        '<div>' + (groups[tab].length ? groups[tab].map(function (l) { return apprItem(l, tab); }).join('') : empty) + '</div>' +
+      '</section>';
     countAll(view);
     if (focusLot) {
       var el = view.querySelector('[data-appr="' + focusLot + '"]');
@@ -695,39 +649,23 @@
     }
   }
 
-  function apprHead(lot, vm) {
-    return '<div class="appr__lot">' +
-      '<div class="appr__pills">' + zonePill(vm.left) + statusPill(vm.pf.status) + '</div>' +
-      '<h3>' + esc(lotName(lot)) + '</h3>' +
-      '<p class="muted small">' + esc(lot.brand) + ' · <span class="mono">' + esc(lot.lotNo) + '</span> · ' + esc(I.date(S.expiryOf(lot))) + '</p>' +
-      '<p class="small">' + esc(units(lot, lot.qty)) + ' · ' + esc(whLabel(lot.warehouse)) + ' · ' + esc(money(lot.base)) + '</p>' +
-      '<button class="linkbtn" data-action="open-lot" data-id="' + lot.id + '">' + esc(t('ap.viewLot')) + icon('chevron-right', 'ico--sm') + '</button>' +
-    '</div>';
-  }
-
   function apprItem(lot, tab) {
-    var vm = lotVM(lot, 0);
-    var pf = vm.pf;
-    var head = apprHead(lot, vm);
+    var vm = lotVM(lot, 0), pf = vm.pf;
+    var sub = lot.lotNo + ' · ' + t('days.left', { n: lot.daysLeft }) + ' · ' + units(lot, lot.qty);
 
     if (tab !== 'pending') {
       var dec = pf.decision, pr = projected(lot), w = who(dec.persona);
-      return '<article class="appr appr--done z-' + vm.zone + '" data-appr="' + lot.id + '">' + head +
-        '<div class="appr__plan">' +
-          '<div>' + actionChip(dec.action) + '</div>' +
-          '<p class="small"><b>' + esc(t('ap.decided', { verb: t('verb.' + dec.status), name: w.name })) + '</b><br><span class="muted">' + esc(t('ap.at', { role: w.role, time: I.dateTime(dec.at) })) + '</span></p>' +
-          (dec.extraCut ? '<p class="small">' + esc(t('ap.extraApplied', { n: dec.extraCut })) + '</p>' : '') +
-          (decisionNote(dec) ? '<p class="small note">“' + esc(decisionNote(dec)) + '”</p>' : '') +
-        '</div>' +
-        '<div class="appr__money">' +
-          '<div><span>' + esc(dec.status === 'approved' ? t('ap.proj') : t('ap.counted')) + '</span><b>' + esc(short(dec.status === 'approved' ? pr.sim.money.net : pr.base.net)) + '</b></div>' +
-          '<div><span>' + esc(t('dr.base')) + '</span><b>' + esc(short(pr.base.net)) + '</b></div>' +
-        '</div>' +
-        '<div class="appr__foot">' +
+      return '<div class="ap" data-appr="' + lot.id + '"><div class="ap__row">' +
+        prodCell(lot, sub) +
+        '<div>' + actTag(dec.action) + (dec.extraCut ? '<div class="small muted">' + esc(t('ap.extraApplied', { n: dec.extraCut })) + '</div>' : '') + '</div>' +
+        '<div class="small"><b>' + esc(w.name) + '</b><div class="muted">' + esc(I.dateTime(dec.at)) + '</div></div>' +
+        '<div class="proj"><b>' + esc(short(dec.status === 'approved' ? pr.sim.money.net : pr.base.net)) + '</b><span>' + esc(dec.status === 'approved' ? t('ap.proj') : t('ap.counted')) + '</span></div>' +
+        '<div class="ap__btns">' +
           '<button class="btn btn--ghost btn--sm" data-action="undo" data-id="' + lot.id + '">' + icon('undo', 'ico--sm') + esc(t('ap.undo')) + '</button>' +
-          '<a class="btn btn--outline btn--sm" href="#/bao-cao/' + lot.id + '">' + icon('report', 'ico--sm') + esc(t('ap.record')) + '</a>' +
-        '</div>' +
-      '</article>';
+          '<a class="btn btn--outline btn--sm" href="#/bao-cao/' + lot.id + '">' + esc(t('ap.record')) + '</a>' +
+        '</div></div>' +
+        (decisionNote(dec) ? '<p class="small muted" style="padding:0 var(--s5) 12px calc(var(--s5) + 46px)">“' + esc(decisionNote(dec)) + '”</p>' : '') +
+      '</div>';
     }
 
     var dr = draftFor(lot);
@@ -739,35 +677,37 @@
     var p = S.persona();
     var stepPrice = sale && !vm.removed ? E.priceAt(lot, lot.daysLeft, R()) : null;
     var reqPrice = stepPrice ? E.round500(lot.base * (1 - (stepPrice.step.cut + dr.extraCut) / 100)) : null;
+    var open = !!openRows[lot.id] || !g.ok;
 
     var options = Object.keys(D.ACTIONS).map(function (a) {
-      return option(a, (a === rec.action ? '★ ' : '') + actLabel(a) + (a === rec.action ? ' ' + t('ap.recommended') : ''), a === dr.action);
+      return option(a, actLabel(a) + (a === rec.action ? '  ★' : ''), a === dr.action);
     }).join('');
 
-    return '<article class="appr z-' + vm.zone + (g.ok ? '' : ' is-blocked') + '" data-appr="' + lot.id + '">' + head +
-      '<div class="appr__plan">' +
-        '<label class="field"><span class="field__label">' + esc(t('ap.action')) + '</span><select class="select" data-field="action" data-id="' + lot.id + '">' + options + '</select></label>' +
-        (dr.action === rec.action
-          ? '<p class="small muted">' + esc(tm(rec.reasons[rec.reasons.length - 1])) + '</p>'
-          : '<p class="small muted">' + esc(t('ap.different', { action: actLabel(rec.action) })) + '</p>') +
-        (sale ? '<label class="field"><span class="field__label">' + esc(t('ap.extra')) + ' <output>' + esc(t('ap.pts', { n: dr.extraCut })) + '</output></span>' +
-          '<input type="range" class="range" min="0" max="40" step="5" value="' + dr.extraCut + '" data-field="extra" data-id="' + lot.id + '" style="--pct:' + (dr.extraCut / 40 * 100) + '%">' +
-          (stepPrice ? '<span class="field__hint">' + esc(t('ap.priceHint', { step: money(stepPrice.price), req: money(reqPrice), floor: money(stepPrice.min.floor) })) + '</span>' : '') +
-          '</label>' : '') +
-        '<label class="field"><span class="field__label">' + esc(t('ap.note')) + '</span><input class="input" data-field="note" data-id="' + lot.id + '" value="' + esc(dr.note) + '" placeholder="' + esc(t('ap.notePh')) + '"></label>' +
-      '</div>' +
-      '<div class="appr__guard"><h4>' + (g.ok ? icon('shield', 'ico--sm') + esc(t('ap.valid')) : icon('lock', 'ico--sm') + esc(t('ap.blocked'))) +
-        ' <span class="muted small">' + (g.checks.length - g.failed.length) + '/' + g.checks.length + '</span></h4>' + guardList(g, true) + '</div>' +
-      '<div class="appr__foot">' +
-        '<div class="appr__proj"><span>' + esc(t('ap.proj')) + '</span><b>' + esc(short(sim.money.net)) + '</b>' +
-          '<small>' + esc(t('ap.vs', { base: short(vm.base.net), practice: practiceLabel(lot.practice).toLowerCase() })) +
-            (Math.abs(diff) >= 1000 ? ' · <span class="' + (diff >= 0 ? 'pos' : 'neg') + '">' + esc(signed(diff)) + '</span>' : '') + '</small></div>' +
-        '<div class="appr__btns">' +
-          '<button class="btn btn--danger btn--sm" data-action="reject" data-id="' + lot.id + '"' + (p.canApprove ? '' : ' aria-disabled="true"') + '>' + icon('x', 'ico--sm') + esc(t('ap.reject')) + '</button>' +
-          '<button class="btn btn--primary btn--sm" data-action="approve" data-id="' + lot.id + '"' + (g.ok && p.canApprove ? '' : ' aria-disabled="true"') + '>' + icon('check', 'ico--sm') + esc(t('ap.approve')) + '</button>' +
+    return '<div class="ap' + (g.ok ? '' : ' is-blocked') + (open ? ' is-open' : '') + '" data-appr="' + lot.id + '">' +
+      '<div class="ap__row">' +
+        prodCell(lot, sub) +
+        '<div><select class="select select--sm" data-field="action" data-id="' + lot.id + '" aria-label="' + esc(t('ap.action')) + '">' + options + '</select></div>' +
+        '<div><span class="rules-state rules-state--' + (g.ok ? 'ok' : 'fail') + '">' + icon(g.ok ? 'shield' : 'lock') +
+          esc(g.ok ? t('ap.valid', { n: g.checks.length }) : t('ap.blockedN', { n: g.failed.length })) + '</span>' +
+          '<div><button class="ap__more" data-action="appr-toggle" data-id="' + lot.id + '" aria-expanded="' + open + '">' + esc(t('ap.details')) + icon('chevron-down', 'ico--sm') + '</button></div></div>' +
+        '<div class="proj"><b>' + esc(short(sim.money.net)) + '</b><span>' + esc(t('ap.vsShort', { base: short(vm.base.net) })) +
+          (Math.abs(diff) >= 1000 ? ' · <i class="' + (diff >= 0 ? 'pos' : 'neg') + '" style="font-style:normal">' + esc(signed(diff)) + '</i>' : '') + '</span></div>' +
+        '<div class="ap__btns">' +
+          '<button class="btn btn--danger btn--sm" data-action="reject" data-id="' + lot.id + '"' + (p.canApprove ? '' : ' aria-disabled="true"') + '>' + esc(t('ap.reject')) + '</button>' +
+          '<button class="btn btn--accent btn--sm" data-action="approve" data-id="' + lot.id + '"' + (g.ok && p.canApprove ? '' : ' aria-disabled="true"') + '>' + icon('check', 'ico--sm') + esc(t('ap.approve')) + '</button>' +
         '</div>' +
       '</div>' +
-    '</article>';
+      (open ? '<div class="ap__details">' +
+        '<div>' +
+          '<ul class="reasons" style="margin-bottom:var(--s4)">' + (dr.action === rec.action ? rec.reasons.map(function (r) { return '<li>' + esc(tm(r)) + '</li>'; }).join('') : '<li>' + esc(t('ap.different', { action: actLabel(rec.action) })) + '</li>') + '</ul>' +
+          (sale ? '<label class="field"><span class="field__label">' + esc(t('ap.extra')) + ' <output class="out">' + esc(t('ap.pts', { n: dr.extraCut })) + '</output></span>' +
+            '<input type="range" class="range" min="0" max="40" step="5" value="' + dr.extraCut + '" data-field="extra" data-id="' + lot.id + '" style="--pct:' + (dr.extraCut / 40 * 100) + '%">' +
+            (stepPrice ? '<span class="field__hint">' + esc(t('ap.priceHint', { step: money(stepPrice.price), req: money(reqPrice), floor: money(stepPrice.min.floor) })) + '</span>' : '') + '</label>' : '') +
+          '<label class="field"><span class="field__label">' + esc(t('ap.note')) + '</span><input class="input input--sm" data-field="note" data-id="' + lot.id + '" value="' + esc(dr.note) + '" placeholder="' + esc(t('ap.notePh')) + '"></label>' +
+        '</div>' +
+        '<div>' + guardList(g) + '</div>' +
+      '</div>' : '') +
+    '</div>';
   }
 
   function refreshApprItem(id) {
@@ -778,6 +718,7 @@
     var tmp = document.createElement('div');
     tmp.innerHTML = apprItem(E.lotById(id), 'pending');
     el.replaceWith(tmp.firstChild);
+    U.hydrateIcons(view);
     if (field) {
       var again = view.querySelector('[data-appr="' + id + '"] [data-field="' + field + '"]');
       if (again) again.focus();
@@ -842,7 +783,7 @@
     D.LOTS.forEach(function (l) {
       if (S.planFor(l).status !== 'pending') return;
       var a = E.recommend(l, l.daysLeft, R()).action;
-      if (!drafts[l.id] || drafts[l.id].action !== a) drafts[l.id] = { action: a, extraCut: 0, note: '' };
+      if (!drafts[l.id] || drafts[l.id].action !== a || drafts[l.id].extraCut) drafts[l.id] = { action: a, extraCut: 0, note: '' };
       if (E.guard(l, proposalOf(l, drafts[l.id]), l.daysLeft, R()).ok && approve(l.id, true)) n++;
     });
     render();
@@ -872,9 +813,9 @@
     var id = channelLotId();
     st().ui.channelLot = id;
     view.innerHTML =
-      '<div class="pick"><label class="field"><span class="field__label">' + esc(t('ch.pick')) + '</span><select class="select" id="chLot">' +
+      '<div class="head"><label class="field" style="min-width:min(420px,100%)"><span class="sr-only">' + esc(t('ch.pick')) + '</span><select class="select" id="chLot">' +
         D.LOTS.map(function (l) { return option(l.id, l.lotNo + ' · ' + lotName(l) + ' — ' + t('status.' + S.planFor(l).status), l.id === id); }).join('') +
-      '</select></label></div><div id="chBody"></div>';
+      '</select></label></div><div id="chBody" style="display:grid;gap:var(--s5)"></div>';
     $('#chLot').addEventListener('change', function (e) { location.hash = '#/kenh/' + e.target.value; });
     paintChannels(E.lotById(id));
   }
@@ -887,29 +828,22 @@
     var action = channelAction(lot);
     var meta = D.ACTIONS[action];
     var alloc = currentAlloc(lot, action);
-    var plan = { action: action, extraCut: pf.plan.extraCut || 0, allocations: alloc };
+    var plan = { action: action, extraCut: pf.plan.extraCut || 0, allocations: alloc, orders: pf.plan.orders };
     var simDay = E.simulateLot(lot, plan, rules, { until: day });
     var simAll = E.simulateLot(lot, plan, rules, {});
     var left = lot.daysLeft - day;
-    var safety = E.safetyDays(lot, rules);
-    var removed = left <= safety;
+    var removed = left <= E.safetyDays(lot, rules);
     var total = E.allocTotal(alloc);
     var over = total > lot.qty;
     var dirty = !!allocDraft[lot.id];
     var when = I.when(day);
     var body = $('#chBody');
 
-    var summary = '<section class="card ch-summary z-' + E.zone(left, safety) + '">' +
-      '<div class="ch-summary__main">' +
-        '<div class="appr__pills">' + zonePill(left) + statusPill(pf.status) + actionChip(action) + '</div>' +
-        '<h2>' + esc(lotName(lot)) + '</h2>' +
-        '<p class="muted small">' + esc(lot.brand) + ' · ' + esc(lot.sku) + ' · <span class="mono">' + esc(lot.lotNo) + '</span> · ' + esc(I.date(S.expiryOf(lot))) + ' · ' + esc(whLabel(lot.warehouse)) + '</p>' +
-      '</div>' +
-      '<div class="ch-summary__nums">' +
-        '<div><span>' + esc(t('ch.stock')) + '</span><b>' + esc(units(lot, lot.qty)) + '</b></div>' +
-        '<div><span>' + esc(t('ch.done', { when: when })) + '</span><b>' + esc(num(lot.qty - simDay.units.stock)) + '</b></div>' +
-        '<div><span>' + esc(t('ch.net', { when: when })) + '</span><b class="pos">' + esc(short(simDay.money.net)) + '</b></div>' +
-      '</div>' +
+    var summary = '<section class="stats" style="grid-template-columns:minmax(0,1.6fr) repeat(3,minmax(0,1fr))">' +
+      '<div class="stat">' + prodCell(lot, lot.lotNo + ' · ' + I.date(S.expiryOf(lot)) + ' · ' + whLabel(lot.warehouse)) + '<div class="head" style="margin-top:8px;justify-content:flex-start">' + statusTag(pf.status) + actTag(action) + '</div></div>' +
+      stat(t('ch.stock'), '<span class="stat__v">' + esc(num(lot.qty)) + '</span>', unit(lot)) +
+      stat(t('ch.done', { when: when }), '<span class="stat__v">' + esc(num(lot.qty - simDay.units.stock)) + '</span>', t('ch.remaining', { n: num(simDay.units.stock) })) +
+      stat(t('ch.net', { when: when }), '<span class="stat__v">' + esc(short(simDay.money.net)) + '</span>', t('ch.netEnd', { v: short(simAll.money.net) }), 'stat--accent') +
     '</section>';
 
     if (pf.status !== 'approved') {
@@ -918,98 +852,80 @@
     }
 
     if (meta.kind !== 'sell' && meta.kind !== 'donate') {
-      body.innerHTML = summary + '<div class="card">' + emptyState(meta.icon, t('ch.noChannels'), t('ch.noChannels.text', { action: actLabel(action) }),
-        '<a class="btn btn--outline btn--sm" href="#/bao-cao/' + lot.id + '">' + esc(t('ch.openRecord')) + '</a>') + '</div>';
+      body.innerHTML = summary + '<section class="card">' + emptyState(meta.icon, t('ch.noChannels'), t('ch.noChannels.text', { action: actLabel(action) }),
+        '<a class="btn btn--outline btn--sm" href="#/bao-cao/' + lot.id + '">' + esc(t('ch.openRecord')) + '</a>') + '</section>';
       U.hydrateIcons(body);
       return;
     }
 
-    // Hub: one lot record in the middle, channels around it.
-    var nodes = D.CHANNELS.map(function (c, i) {
-      var acc = E.channelAccess(c, rules);
+    // One stacked bar: how the lot is split across channels.
+    var segs = D.CHANNELS.map(function (c) {
       var q = alloc[c.id] || 0;
-      var b = simDay.byChannel[c.id];
-      var price = c.kind === 'sale' && !removed ? E.priceAt(lot, left, rules, { extraCut: plan.extraCut, channel: c.id }).price : null;
-      var state = acc.blocked ? 'blocked' : (q > 0 ? 'on' : 'off');
-      return '<div class="node node--' + i + ' is-' + state + '" style="--c:' + c.color + ';--w:' + Math.max(2, Math.min(10, q / lot.qty * 14)) + 'px">' +
-        '<span class="node__ico">' + icon(c.icon) + '</span><b>' + esc(L(c.label)) + '</b>' +
-        (acc.blocked ? '<span class="node__st">' + icon('lock', 'ico--sm') + esc(t('ch.blocked')) + '</span>' :
-          '<span class="node__q">' + esc(t('ch.allocated', { n: units(lot, q) })) + '</span>' +
-          '<span class="node__p">' + esc(c.kind === 'sale' ? (price ? money(price) : t('card.pulled')) : t('ch.donation')) + '</span>' +
-          '<span class="node__sold">' + esc(t(c.kind === 'sale' ? 'ch.sold' : 'ch.handed')) + ' <b>' + esc(num(b.units)) + '</b></span>') +
-      '</div>';
-    }).join('');
-    var entries = simDay.events.filter(function (e) { return e.kind === 'sale' || e.kind === 'donate'; }).length;
-    var hub = '<section class="card"><div class="card__head"><h3>' + esc(t('ch.hub')) + '</h3><span class="muted small">' + esc(t('ch.at', { when: when })) + '</span></div>' +
-      '<div class="hub' + (playTimer ? ' is-live' : '') + '">' + nodes +
-        '<div class="hub__core">' + U.logo(26) + '<b>' + esc(t('ch.record')) + '</b><span class="mono">' + esc(lot.lotNo) + '</span><small>' + esc(t('ch.entries', { n: num(entries) })) + '</small></div>' +
-      '</div></section>';
+      return q > 0 ? '<i style="flex:' + q + ';--c:' + c.color + '" data-tip="' + esc('<b>' + esc(L(c.label)) + '</b><span>' + esc(units(lot, q)) + '</span>') + '"></i>' : '';
+    }).join('') + (lot.qty - total > 0 ? '<i class="is-rest" style="flex:' + (lot.qty - total) + '"></i>' : '');
+    var legend = D.CHANNELS.map(function (c) {
+      return '<span>' + channelDot(c.id) + esc(L(c.label)) + ' <b>' + esc(num(alloc[c.id] || 0)) + '</b></span>';
+    }).join('') + (lot.qty - total > 0 ? '<span><i class="dot" style="--c:var(--line-2)"></i>' + esc(t('ch.unallocated')) + ' <b>' + esc(num(lot.qty - total)) + '</b></span>' : '');
 
-    // Allocation table
     var rows = D.CHANNELS.map(function (c) {
       var acc = E.channelAccess(c, rules);
       var q = alloc[c.id] || 0;
       var proj = simAll.byChannel[c.id];
       var price = c.kind === 'sale' && !removed ? E.priceAt(lot, left, rules, { extraCut: plan.extraCut, channel: c.id }).price : null;
       var why = acc.blocked ? t('ch.why.region') : (c.kind === 'donate' && !lot.charityOk ? t('ch.why.category') : (meta.kind === 'donate' && c.kind === 'sale' ? t('ch.why.donate') : ''));
-      var shown = E.brandVisible(c.id, rules);
-      var brand = c.kind === 'sale'
-        ? '<span class="pill ' + (shown ? 'pill--ok' : '') + '">' + esc(t(shown ? 'ch.brandShow' : 'ch.brandHide')) + '</span><br><span class="muted">' + esc(listingName(lot, c.id)) + '</span>'
-        : '—';
-      return '<tr class="' + (why ? 'is-disabled' : '') + '">' +
-        '<td><div class="cell-ch">' + channelDot(c.id) + '<div><b>' + esc(L(c.label)) + '</b><span class="muted small">' + esc(L(c.note)) + '</span></div></div></td>' +
-        '<td class="small">' + esc(acc.openRegions.length ? acc.openRegions.map(regionLabel).join(', ') : '—') +
-          (acc.hiddenRegions.length ? '<br><span class="neg">' + esc(t('ch.hiddenIn', { list: acc.hiddenRegions.map(regionLabel).join(', ') })) + '</span>' : '') + '</td>' +
-        '<td class="small">' + brand + '</td>' +
-        '<td class="num">' + (c.kind === 'sale' ? (price ? '<b>' + esc(money(price)) + '</b>' + (c.extraCutPct ? '<br><span class="muted small">' + esc(t('ch.groupNote', { n: c.extraCutPct })) + '</span>' : '') : esc(t('card.pulled'))) : esc(money(0))) + '</td>' +
-        '<td class="num small">' + (c.feePct ? c.feePct + '%' : '—') + '<br><span class="muted">' + esc(t('ch.perUnit', { price: money(c.shipPerUnit * lot.bulk) })) + '</span></td>' +
-        '<td class="alloc"><input class="input input--num" type="number" min="0" max="' + lot.qty + '" step="1" value="' + q + '" data-alloc="' + c.id + '"' + (why ? ' disabled title="' + esc(why) + '"' : '') + ' aria-label="' + esc(t('ch.col.alloc') + ' · ' + L(c.label)) + '">' +
-          (why ? '<span class="small neg">' + esc(why) + '</span>' : '') + '</td>' +
-        '<td class="num">' + esc(num(proj.units)) + '</td>' +
-        '<td class="num"><b class="' + (proj.net >= 0 ? '' : 'neg') + '">' + esc(short(proj.net)) + '</b></td>' +
+      return '<tr class="' + (why ? 'is-dim' : '') + '">' +
+        '<td><div class="chan">' + channelDot(c.id) + '<div><b>' + esc(L(c.label)) + '</b><span>' + esc(c.kind === 'sale' ? listingName(lot, c.id) : L(c.note)) + '</span>' +
+          (acc.hiddenRegions.length && !acc.blocked ? '<span class="neg">' + esc(t('ch.hiddenIn', { list: acc.hiddenRegions.map(regionLabel).join(', ') })) + '</span>' : '') + '</div></div></td>' +
+        '<td class="num mono">' + (c.kind === 'sale' ? esc(price ? money(price) : t('card.pulled')) : '—') + '</td>' +
+        '<td class="num mono small">' + (c.feePct ? c.feePct + '%' : '—') + '</td>' +
+        '<td class="num"><input class="input input--sm input--num" type="number" min="0" max="' + lot.qty + '" step="1" value="' + q + '" data-alloc="' + c.id + '"' + (why ? ' disabled title="' + esc(why) + '"' : '') + ' aria-label="' + esc(t('ch.col.alloc') + ' · ' + L(c.label)) + '">' +
+          (why ? '<div class="small neg">' + esc(why) + '</div>' : '') + '</td>' +
+        '<td class="num mono">' + esc(num(simDay.byChannel[c.id].units)) + '</td>' +
+        '<td class="num mono">' + esc(num(proj.units)) + '</td>' +
+        '<td class="num mono"><b class="' + (proj.net >= 0 ? '' : 'neg') + '">' + esc(short(proj.net)) + '</b></td>' +
       '</tr>';
     }).join('');
+    var cols = [['ch.col.channel', 0], ['ch.col.price', 1], ['ch.col.fee', 1], ['ch.col.alloc', 1], ['ch.col.soldNow', 1], ['ch.col.sold', 1], ['ch.col.net', 1]];
     var unalloc = lot.qty - total;
-    var cols = ['ch.col.channel', 'ch.col.regions', 'ch.col.brand', 'ch.col.price', 'ch.col.fees', 'ch.col.alloc', 'ch.col.sold', 'ch.col.net'];
-    var table = '<section class="card"><div class="card__head"><h3>' + esc(t('ch.split')) + '</h3>' +
-      '<div class="card__tools"><button class="btn btn--ghost btn--sm" data-action="alloc-auto">' + icon('refresh', 'ico--sm') + esc(t('ch.auto')) + '</button>' +
-      '<button class="btn btn--primary btn--sm" data-action="alloc-save"' + (dirty && !over ? '' : ' disabled') + '>' + icon('check', 'ico--sm') + esc(t('ch.save')) + '</button></div></div>' +
-      '<div class="tablewrap"><table class="tbl tbl--alloc"><thead><tr>' + cols.map(function (k, i) {
-        return '<th' + ([3, 4, 6, 7].indexOf(i) !== -1 ? ' class="num"' : '') + '>' + esc(t(k, { when: when })) + '</th>';
+    var table = '<section class="card">' +
+      '<div class="card__head"><h2>' + esc(t('ch.split')) + '</h2><div class="card__tools">' +
+        '<button class="btn btn--ghost btn--sm" data-action="alloc-auto">' + icon('refresh', 'ico--sm') + esc(t('ch.auto')) + '</button>' +
+        '<button class="btn btn--primary btn--sm" data-action="alloc-save"' + (dirty && !over ? '' : ' disabled') + '>' + esc(t('ch.save')) + '</button></div></div>' +
+      '<div class="split"><div class="split__bar">' + segs + '</div><div class="split__legend">' + legend + '</div></div>' +
+      '<div class="tablewrap" style="border-top:1px solid var(--line)"><table class="tbl"><thead><tr>' + cols.map(function (c) {
+        return '<th' + (c[1] ? ' class="num"' : '') + '>' + esc(t(c[0], { when: when })) + '</th>';
       }).join('') + '</tr></thead><tbody>' + rows + '</tbody>' +
-      '<tfoot><tr><td colspan="5">' + esc(t('ch.total', { n: rules.perBuyerCap })) + '</td><td class="' + (over ? 'neg' : '') + '"><b>' + esc(num(total)) + '</b> / ' + esc(num(lot.qty)) + '</td>' +
-        '<td class="num">' + esc(num(simAll.units.sold + simAll.units.donated)) + '</td><td class="num"><b>' + esc(short(simAll.money.net)) + '</b></td></tr></tfoot></table></div>' +
+      '<tfoot><tr><td>' + esc(t('ch.total', { n: rules.perBuyerCap })) + '</td><td></td><td></td><td class="num mono' + (over ? ' neg' : '') + '"><b>' + esc(num(total)) + '</b> / ' + esc(num(lot.qty)) + '</td>' +
+        '<td class="num mono">' + esc(num(simDay.units.sold)) + '</td><td class="num mono">' + esc(num(simAll.units.sold + simAll.units.donated)) + '</td><td class="num mono"><b>' + esc(short(simAll.money.net)) + '</b></td></tr></tfoot></table></div>' +
       (over ? '<p class="formmsg neg">' + icon('alert', 'ico--sm') + esc(t('ch.over', { n: units(lot, total - lot.qty) })) + '</p>'
-        : (unalloc > 0 ? '<p class="formmsg muted">' + icon('info', 'ico--sm') + esc(t('ch.unalloc', { n: units(lot, unalloc) })) + '</p>' : '')) +
-      (dirty && !over ? '<p class="formmsg">' + icon('info', 'ico--sm') + esc(t('ch.dirty')) + '</p>' : '') +
+        : (dirty ? '<p class="formmsg">' + icon('info', 'ico--sm') + esc(t('ch.dirty')) + '</p>'
+          : (unalloc > 0 ? '<p class="formmsg">' + icon('info', 'ico--sm') + esc(t('ch.unalloc', { n: units(lot, unalloc) })) + '</p>' : ''))) +
     '</section>';
 
-    // Unified ledger
     var all = E.ledger(lot, simDay);
     var led = all.slice(-12).reverse();
-    var counts = {};
-    all.forEach(function (r) { counts[r.channel] = (counts[r.channel] || 0) + r.orders; });
-    var ledger = '<section class="card"><div class="card__head card__head--wrap"><h3>' + esc(t('ch.ledger')) + ' <small class="muted">· ' + esc(t('ch.ledgerSub', { lot: lot.lotNo })) + '</small></h3>' +
-      '<div class="ledger-counts">' + D.CHANNELS.map(function (c) { return '<span>' + channelDot(c.id) + esc(L(c.label)) + ' <b>' + esc(num(counts[c.id] || 0)) + '</b></span>'; }).join('') + '</div></div>' +
-      (led.length ? '<div class="tablewrap"><table class="tbl tbl--ledger"><thead><tr>' +
-        ['ld.id', 'ld.date', 'ld.channel', 'ld.qty', 'ld.price', 'ld.amount', 'ld.to'].map(function (k, i) { return '<th' + (i >= 3 && i <= 5 ? ' class="num"' : '') + '>' + esc(t(k)) + '</th>'; }).join('') +
+    var realCount = all.filter(function (r) { return r.orderId; }).length;
+    var ledger = '<section class="card"><div class="card__head"><h2>' + esc(t('ch.ledger')) + ' <span class="muted small" style="font-weight:400">· ' + esc(t('ch.ledgerSub', { lot: lot.lotNo })) + '</span></h2>' +
+      '<span class="small muted mono">' + esc(t('ch.entries', { n: num(all.length) })) + (realCount ? ' · ' + esc(t('ch.realOrders', { n: realCount })) : '') + '</span></div>' +
+      (led.length ? '<div class="tablewrap"><table class="tbl"><thead><tr>' +
+        ['ld.id', 'ld.date', 'ld.channel', 'ld.qty', 'ld.price', 'ld.amount'].map(function (k, i) { return '<th' + (i >= 3 ? ' class="num"' : '') + '>' + esc(t(k)) + '</th>'; }).join('') +
         '</tr></thead><tbody>' +
-        led.map(function (r, i) {
-          return '<tr' + (i === 0 && playTimer ? ' class="is-new"' : '') + '><td class="mono small">' + esc(r.id) + '</td><td>' + esc(I.date(S.dateAt(r.day))) + '</td>' +
-            '<td>' + channelDot(r.channel) + esc(chLabel(r.channel)) + '</td>' +
-            '<td class="num">' + esc(num(r.units)) + (r.kind === 'sale' ? ' <span class="muted small">(' + esc(t('ld.orders', { n: r.orders })) + ')</span>' : '') + '</td>' +
-            '<td class="num">' + esc(r.kind === 'sale' ? money(r.price) : t('ch.donation')) + '</td><td class="num">' + esc(money(r.units * r.price)) + '</td>' +
-            '<td class="small"><span class="pill pill--outline">' + icon('file') + esc(lot.lotNo) + '</span></td></tr>';
+        led.map(function (r) {
+          return '<tr><td class="mono small">' + esc(r.id) + (r.orderId ? ' <span class="badge badge--info">' + icon('bag') + esc(r.orderId) + '</span>' : '') + '</td>' +
+            '<td class="small">' + esc(I.date(S.dateAt(r.day))) + '</td>' +
+            '<td><span class="chan" style="min-width:0">' + channelDot(r.channel) + esc(chLabel(r.channel)) + '</span></td>' +
+            '<td class="num mono">' + esc(num(r.units)) + '</td>' +
+            '<td class="num mono">' + esc(r.kind === 'sale' ? money(r.price) : t('ch.donation')) + '</td><td class="num mono">' + esc(money(r.units * r.price)) + '</td></tr>';
         }).join('') + '</tbody></table></div>'
-        : '<p class="muted small pad">' + esc(t('ld.empty', { when: when })) + '</p>') +
+        : '<div class="empty" style="padding:var(--s5)"><p>' + esc(t('ld.empty', { when: when })) + '</p></div>') +
     '</section>';
 
-    body.innerHTML = summary + hub + table + ledger;
+    body.innerHTML = summary + table + ledger;
     U.hydrateIcons(body);
   }
 
   /* ======================================================================
-     SCREEN 5 — LOT REPORT
+     SCREEN 5 — REPORT
      ====================================================================== */
   function reportLotId() {
     var id = route.param || st().ui.reportLot;
@@ -1018,23 +934,19 @@
     return first ? first.id : 'L01';
   }
 
+  var barsSort = 'uplift';
   function renderReport() {
     st().ui.reportLot = reportLotId();
-    view.innerHTML = '<div id="rpPortfolio"></div><div id="rpLot"></div><div id="rpLog"></div>';
+    view.innerHTML = '<div id="rpTop" style="display:grid;gap:var(--s5)"></div><div id="rpLot"></div><div id="rpLog"></div>';
     paintPortfolio();
     paintLotRecord(reportLotId());
     paintLog();
     countAll(view);
   }
-
   function updateReport() {
     paintPortfolio();
     paintLotRecord(reportLotId());
     countAll(view);
-  }
-
-  function tile(label, sub, valueHTML) {
-    return '<div class="tile"><span>' + esc(label) + '</span>' + valueHTML + '<small>' + esc(sub) + '</small></div>';
   }
 
   function paintPortfolio() {
@@ -1046,7 +958,13 @@
 
     var rows = D.LOTS.map(function (lot) {
       var p = projected(lot);
-      return { lot: lot, plan: p.sim.money.net, base: p.base.net, status: p.pf.status };
+      var counted = p.pf.status === 'approved' ? p.sim.money.net : p.base.net;
+      return { lot: lot, plan: p.sim.money.net, base: p.base.net, status: p.pf.status, uplift: counted - p.base.net, potential: p.sim.money.net - p.base.net };
+    });
+    rows.sort(function (a, b) {
+      if (barsSort === 'net') return b.plan - a.plan;
+      if (barsSort === 'days') return a.lot.daysLeft - b.lot.daysLeft;
+      return b.potential - a.potential;
     });
     var maxPos = Math.max.apply(null, rows.map(function (r) { return Math.max(r.plan, r.base, 0); })) || 1;
     var maxNeg = Math.abs(Math.min.apply(null, rows.map(function (r) { return Math.min(r.plan, r.base, 0); })));
@@ -1056,151 +974,137 @@
     }
     var chart = '<div class="bars" style="--zero:' + (maxNeg / span * 100) + '%">' + rows.map(function (r) {
       return '<button class="bars__row' + (r.lot.id === selected ? ' is-sel' : '') + '" data-action="report-lot" data-id="' + r.lot.id + '">' +
-        '<span class="bars__label"><b>' + esc(r.lot.lotNo) + '</b><span>' + esc(lotName(r.lot)) + '</span></span>' +
+        '<span class="bars__label"><b>' + esc(lotName(r.lot)) + '</b><span>' + esc(r.lot.lotNo) + ' · ' + esc(t('status.' + r.status)) + '</span></span>' +
         '<span class="bars__plot"><i class="bars__zero"></i>' +
           bar(r.plan, 'bar--plan' + (r.status !== 'approved' ? ' is-proj' : ''), '<b>' + esc(t('rp.tipPlan', { lot: r.lot.lotNo }) + (r.status !== 'approved' ? t('rp.tipPending') : '')) + '</b><span>' + esc(short(r.plan)) + '</span>') +
           bar(r.base, 'bar--base', '<b>' + esc(t('rp.tipBase', { lot: r.lot.lotNo })) + '</b><span>' + esc(short(r.base)) + '</span>') +
         '</span>' +
         '<span class="bars__val"><b>' + esc(short(r.plan)) + '</b><span>' + esc(short(r.base)) + '</span></span>' +
-        '<span class="bars__st">' + statusPill(r.status) + '</span>' +
       '</button>';
     }).join('') + '</div>';
 
-    $('#rpPortfolio').innerHTML =
-      '<section class="hero-num">' +
-        '<div class="hero-num__main">' +
-          '<span class="hero-num__label">' + esc(t('rp.hero')) + '<small>' + esc(t('rp.heroSub')) + '</small></span>' +
-          '<strong class="hero-num__val" data-count="rp-net" data-value="' + tt.net + '" data-fmt="money">' + esc(money(tt.net)) + '</strong>' +
-          '<div class="hero-num__vs"><span>' + esc(t('rp.vs', { base: money(tt.base) })) + '</span>' +
-            '<span class="pill ' + (tt.net - tt.base >= 0 ? 'pill--ok' : 'pill--danger') + '">' + esc(signed(tt.net - tt.base)) + (ratio && ratio > 1 ? ' · ' + esc(t('rp.times', { x: I.dec(ratio, 1) })) : '') + '</span></div>' +
-          '<p class="hero-num__note">' + esc(t('rp.note', { a: tt.approved, b: tt.pending + tt.rejected })) +
-            (tt.pending ? ' <b class="pos">' + esc(t('rp.upside', { n: tt.pending, delta: signed(tt.potential) })) + '</b>' : '') + '</p>' +
-        '</div>' +
-        '<div class="hero-num__side">' +
-          tile(t('rp.toDate', { when: I.when(day) }), t('rp.toDateSub'), counter('rp-today', tt.toDay, 'short')) +
-          tile(t('rp.rate'), t('rp.rateSub'), '<b>' + rate + '%</b>') +
-          tile(t('rp.units'), t('rp.unitsSub', { s: num(tt.units.sold), d: num(tt.units.donated), r: num(tt.units.returned) }), counter('rp-units', tt.units.sold + tt.units.donated + tt.units.returned, 'num')) +
-          tile(t('rp.co2'), t('rp.co2Sub'), '<b>' + esc(num(tt.co2)) + ' kg</b>') +
-        '</div>' +
+    $('#rpTop').innerHTML =
+      '<section class="stats hero-stat">' +
+        '<div class="stat"><span class="label">' + esc(t('rp.hero')) + '</span>' + counter('rp-net', tt.net, 'money', 'stat__v') +
+          '<div class="vs"><span>' + esc(t('rp.vs', { base: money(tt.base) })) + '</span><span class="badge badge--ok">' + esc(signed(tt.net - tt.base)) + (ratio && ratio > 1 ? ' · ' + esc(t('rp.times', { x: I.dec(ratio, 1) })) : '') + '</span></div>' +
+          '<span class="stat__s" style="white-space:normal">' + esc(t('rp.note', { a: tt.approved, b: tt.pending + tt.rejected })) + (tt.pending ? ' ' + esc(t('rp.upside', { n: tt.pending, delta: signed(tt.potential) })) : '') + '</span></div>' +
+        stat(t('rp.toDate', { when: I.when(day) }), counter('rp-today', tt.toDay, 'short', 'stat__v'), t('rp.toDateSub')) +
+        stat(t('rp.rate'), '<span class="stat__v">' + rate + '%</span>', t('rp.rateSub')) +
+        stat(t('rp.co2'), '<span class="stat__v">' + esc(num(tt.co2)) + ' kg</span>', t('rp.co2Sub')) +
       '</section>' +
-      '<section class="card"><div class="card__head card__head--wrap"><h3>' + esc(t('rp.byLot')) + '</h3>' +
-        '<div class="legend"><span class="legend__i"><i class="sw sw--plan"></i>' + esc(t('rp.legend.plan')) + '</span><span class="legend__i"><i class="sw sw--proj"></i>' + esc(t('rp.legend.proj')) + '</span><span class="legend__i"><i class="sw sw--base"></i>' + esc(t('rp.legend.base')) + '</span></div></div>' +
-        chart + '<p class="muted small pad">' + esc(t('rp.byLotHint')) + '</p></section>';
+      '<section class="card"><div class="card__head"><h2>' + esc(t('rp.byLot')) + '</h2><div class="card__tools">' +
+        '<div class="legend"><span><i class="sw sw--plan"></i>' + esc(t('rp.legend.plan')) + '</span><span><i class="sw sw--proj"></i>' + esc(t('rp.legend.proj')) + '</span><span><i class="sw sw--base"></i>' + esc(t('rp.legend.base')) + '</span></div>' +
+        '<div class="seg" role="group" aria-label="' + esc(t('rp.sortBy')) + '">' + ['uplift', 'net', 'days'].map(function (k) {
+          return '<button data-action="bars-sort" data-k="' + k + '" aria-pressed="' + (barsSort === k) + '">' + esc(t('rp.sort.' + k)) + '</button>';
+        }).join('') + '</div></div></div>' + chart + '</section>';
   }
 
+  var REC_TABS = ['overview', 'cash', 'sales', 'docs', 'log'];
   function paintLotRecord(id) {
     var lot = E.lotById(id), day = st().day, rules = R();
     var p = projected(lot), pf = p.pf, sim = p.sim, base = p.base;
     var simDay = E.simulateLot(lot, pf.plan, rules, { until: day });
     var when = I.when(day);
     var m = sim.money, md = simDay.money;
-    var logs = st().log.filter(function (e) { return e.lotId === id; });
-
-    function moneyRow(key, a, b, sign) {
-      var f = function (v) { return v ? (sign < 0 ? '−' : '') + money(Math.abs(v)) : '—'; };
-      return '<tr><td>' + esc(t(key)) + '</td><td class="num">' + esc(f(a)) + '</td><td class="num">' + esc(f(b)) + '</td></tr>';
-    }
-    var flow = '<table class="tbl tbl--money"><thead><tr><th>' + esc(t('flow.col')) + '</th><th class="num">' + esc(t('flow.proj')) + '</th><th class="num">' + esc(t('flow.day', { when: when })) + '</th></tr></thead><tbody>' +
-      moneyRow('flow.revenue', m.revenue, md.revenue, 1) + moneyRow('flow.refund', m.refund, md.refund, 1) +
-      moneyRow('flow.fees', m.fees, md.fees, -1) + moneyRow('flow.ship', m.shipping, md.shipping, -1) +
-      moneyRow('flow.handling', m.handling, md.handling, -1) + moneyRow('flow.transfer', m.transfer, md.transfer, -1) +
-      moneyRow('flow.destroy', m.destroy, md.destroy, -1) +
-      '</tbody><tfoot><tr><td><b>' + esc(t('flow.net')) + '</b></td><td class="num"><b>' + esc(money(m.net)) + '</b></td><td class="num"><b>' + esc(money(md.net)) + '</b></td></tr>' +
-      '<tr class="muted"><td>' + esc(t('flow.base', { practice: practiceLabel(base.practice).toLowerCase() })) + '</td><td class="num">' + esc(money(base.net)) + '</td><td></td></tr></tfoot></table>';
-
-    var steps = sim.priceSteps.length
-      ? '<table class="tbl"><thead><tr>' + ['st.channel', 'st.price', 'st.pct', 'st.qty', 'st.rev'].map(function (k, i) { return '<th' + (i ? ' class="num"' : '') + '>' + esc(t(k)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
-        sim.priceSteps.map(function (s) {
-          return '<tr><td>' + channelDot(s.channel) + esc(chLabel(s.channel)) + '</td><td class="num">' + esc(money(s.price)) + '</td><td class="num">' + Math.round(s.price / lot.base * 100) + '%</td><td class="num">' + esc(num(s.units)) + '</td><td class="num">' + esc(money(s.revenue)) + '</td></tr>';
-        }).join('') + '</tbody></table>'
-      : '<p class="muted small pad">' + esc(t('st.none', { action: actLabel(pf.action).toLowerCase() })) + '</p>';
-
-    var PARTS = [['sold', 'u-sold'], ['donated', 'u-don'], ['returned', 'u-ret'], ['destroyed', 'u-des'], ['stock', 'u-stock']];
-    function stack(u, label) {
-      return '<div class="stack"><span class="stack__label">' + esc(label) + '</span><div class="stack__bar">' + PARTS.map(function (pp) {
-        var v = u[pp[0]];
-        return v ? '<i class="' + pp[1] + '" style="flex:' + v + '" data-tip="' + esc('<b>' + esc(t('u.' + pp[0])) + '</b><span>' + esc(units(lot, v)) + ' (' + Math.round(v / lot.qty * 100) + '%)</span>') + '"></i>' : '';
-      }).join('') + '</div><ul class="stack__legend">' + PARTS.map(function (pp) {
-        return u[pp[0]] ? '<li><i class="' + pp[1] + '"></i>' + esc(t('u.' + pp[0])) + ' <b>' + esc(num(u[pp[0]])) + '</b></li>' : '';
-      }).join('') + '</ul></div>';
-    }
-    var removedNote = sim.disposition
-      ? '<p class="small muted">' + esc(t('rec.removed', { date: I.date(S.dateAt(sim.removedDay)), n: E.safetyDays(lot, rules), action: actLabel(sim.disposition.action).toLowerCase() })) + '</p>'
-      : '';
-
-    var docs = sim.docs.length ? '<ul class="docs">' + sim.docs.map(function (d) {
-      var done = d.day <= day;
-      return '<li class="' + (done ? 'is-done' : '') + '">' + icon('file', 'ico--sm') + '<div><b>' + esc(t('doc.' + d.type)) + '</b><span class="mono">' + esc(d.no) + '</span></div>' +
-        '<span class="small">' + esc(units(lot, d.units)) + ' · ' + esc(I.date(S.dateAt(d.day))) + '</span>' +
-        '<span class="pill ' + (done ? 'pill--ok' : '') + '">' + esc(t(done ? 'doc.done' : 'doc.planned')) + '</span></li>';
-    }).join('') + '</ul>' : '<p class="muted small pad">' + esc(t('doc.none')) + '</p>';
-
-    var logTable = logs.length ? logTableHTML(logs) : '<p class="muted small pad">' + esc(t('log.none')) + '</p>';
+    var tab = REC_TABS.indexOf(st().ui.reportTab) !== -1 ? st().ui.reportTab : 'overview';
     var dec = pf.decision;
     var diff = m.net - base.net;
 
+    var pane = '';
+    if (tab === 'overview') {
+      var PARTS = [['sold', 'u-sold'], ['donated', 'u-don'], ['returned', 'u-ret'], ['destroyed', 'u-des'], ['stock', 'u-stock']];
+      var stack = function (u, label) {
+        return '<div class="stack"><span class="stack__label">' + esc(label) + '</span><div class="stack__bar">' + PARTS.map(function (pp) {
+          var v = u[pp[0]];
+          return v ? '<i class="' + pp[1] + '" style="flex:' + v + '" data-tip="' + esc('<b>' + esc(t('u.' + pp[0])) + '</b><span>' + esc(units(lot, v)) + '</span>') + '"></i>' : '';
+        }).join('') + '</div><ul class="stack__legend">' + PARTS.map(function (pp) {
+          return u[pp[0]] ? '<li><i class="' + pp[1] + '"></i>' + esc(t('u.' + pp[0])) + ' <b>' + esc(num(u[pp[0]])) + '</b></li>' : '';
+        }).join('') + '</ul></div>';
+      };
+      pane = '<div class="grid2"><div>' + priceChart(lot, pf.plan, rules, day, t('chart.captionRecord')) + '</div><div>' +
+        stack(simDay.units, t('stack.at', { when: when })) + stack(sim.units, t('stack.end')) +
+        (sim.disposition ? '<p class="small muted">' + esc(t('rec.removed', { date: I.date(S.dateAt(sim.removedDay)), n: E.safetyDays(lot, rules), action: actLabel(sim.disposition.action).toLowerCase() })) + '</p>' : '') +
+        '<p class="sample-note" style="margin-top:var(--s3)">' + esc(t('rec.co2', { n: num(sim.co2Kg) })) + '</p></div></div>';
+    } else if (tab === 'cash') {
+      var row = function (key, a, b, sign) {
+        var f = function (v) { return v ? (sign < 0 ? '−' : '') + money(Math.abs(v)) : '—'; };
+        return '<tr><td>' + esc(t(key)) + '</td><td class="num mono">' + esc(f(a)) + '</td><td class="num mono">' + esc(f(b)) + '</td></tr>';
+      };
+      pane = '<table class="tbl"><thead><tr><th>' + esc(t('flow.col')) + '</th><th class="num">' + esc(t('flow.proj')) + '</th><th class="num">' + esc(t('flow.day', { when: when })) + '</th></tr></thead><tbody>' +
+        row('flow.revenue', m.revenue, md.revenue, 1) + row('flow.refund', m.refund, md.refund, 1) +
+        row('flow.fees', m.fees, md.fees, -1) + row('flow.ship', m.shipping, md.shipping, -1) +
+        row('flow.handling', m.handling, md.handling, -1) + row('flow.transfer', m.transfer, md.transfer, -1) +
+        row('flow.destroy', m.destroy, md.destroy, -1) +
+        '</tbody><tfoot><tr><td><b>' + esc(t('flow.net')) + '</b></td><td class="num mono"><b>' + esc(money(m.net)) + '</b></td><td class="num mono"><b>' + esc(money(md.net)) + '</b></td></tr>' +
+        '<tr><td class="muted">' + esc(t('flow.base', { practice: practiceLabel(base.practice).toLowerCase() })) + '</td><td class="num mono muted">' + esc(money(base.net)) + '</td><td></td></tr></tfoot></table>';
+    } else if (tab === 'sales') {
+      pane = sim.priceSteps.length
+        ? '<table class="tbl"><thead><tr>' + ['st.channel', 'st.price', 'st.pct', 'st.qty', 'st.rev'].map(function (k, i) { return '<th' + (i ? ' class="num"' : '') + '>' + esc(t(k)) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          sim.priceSteps.map(function (s) {
+            return '<tr><td><span class="chan" style="min-width:0">' + channelDot(s.channel) + esc(chLabel(s.channel)) + '</span></td><td class="num mono">' + esc(money(s.price)) + '</td><td class="num mono">' + Math.round(s.price / lot.base * 100) + '%</td><td class="num mono">' + esc(num(s.units)) + '</td><td class="num mono">' + esc(money(s.revenue)) + '</td></tr>';
+          }).join('') + '</tbody></table>'
+        : '<p class="muted small">' + esc(t('st.none', { action: actLabel(pf.action).toLowerCase() })) + '</p>';
+    } else if (tab === 'docs') {
+      pane = sim.docs.length ? '<ul class="docs">' + sim.docs.map(function (d) {
+        var done = d.day <= day;
+        return '<li>' + icon('file', 'ico--sm') + '<div><b>' + esc(t('doc.' + d.type)) + '</b><span class="mono">' + esc(d.no) + '</span></div>' +
+          '<span class="small mono">' + esc(units(lot, d.units)) + ' · ' + esc(I.date(S.dateAt(d.day))) + '</span>' +
+          '<span class="badge ' + (done ? 'badge--ok' : '') + '">' + esc(t(done ? 'doc.done' : 'doc.planned')) + '</span></li>';
+      }).join('') + '</ul>' : '<p class="muted small">' + esc(t('doc.none')) + '</p>';
+    } else {
+      var logs = st().log.filter(function (e) { return e.lotId === id; });
+      pane = logs.length ? logTableHTML(logs) : '<p class="muted small">' + esc(t('log.none')) + '</p>';
+    }
+
     $('#rpLot').innerHTML =
-      '<section class="card record">' +
-        '<div class="card__head card__head--wrap">' +
-          '<div><p class="eyebrow-sm">' + esc(t('rec.eyebrow')) + '</p><h2>' + esc(lotName(lot)) + '</h2>' +
-          '<p class="muted small">' + esc(lot.brand) + ' · ' + esc(lot.sku) + ' · <span class="mono">' + esc(lot.lotNo) + '</span> · ' + esc(I.date(S.expiryOf(lot))) + ' · ' + esc(units(lot, lot.qty)) + ' · ' + esc(whLabel(lot.warehouse)) + '</p></div>' +
-          '<div class="card__tools">' +
-            '<label class="sr-only" for="rpLotSel">' + esc(t('rec.select')) + '</label><select class="select select--sm" id="rpLotSel">' +
-              D.LOTS.map(function (l) { return option(l.id, l.lotNo + ' · ' + lotName(l), l.id === id); }).join('') + '</select>' +
-            '<button class="btn btn--outline btn--sm" data-action="export-lot" data-id="' + lot.id + '">' + icon('download', 'ico--sm') + esc(t('rec.csv')) + '</button>' +
-            '<button class="btn btn--outline btn--sm" data-action="export-json" data-id="' + lot.id + '">' + icon('file', 'ico--sm') + esc(t('rec.json')) + '</button>' +
-            '<button class="btn btn--primary btn--sm" data-action="print">' + icon('printer', 'ico--sm') + esc(t('rec.print')) + '</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="record__status">' + statusPill(pf.status) + actionChip(pf.status === 'approved' ? pf.action : pf.rec.action) +
+      '<section class="card">' +
+        '<div class="card__head"><h2>' + esc(t('rec.eyebrow')) + '</h2><div class="card__tools">' +
+          '<label class="sr-only" for="rpLotSel">' + esc(t('rec.select')) + '</label><select class="select select--sm" id="rpLotSel">' +
+            D.LOTS.map(function (l) { return option(l.id, l.lotNo + ' · ' + lotName(l), l.id === id); }).join('') + '</select>' +
+          '<button class="btn btn--outline btn--sm" data-action="export-lot" data-id="' + lot.id + '">' + icon('download', 'ico--sm') + 'CSV</button>' +
+          '<button class="btn btn--outline btn--sm" data-action="export-json" data-id="' + lot.id + '">JSON</button>' +
+          '<button class="btn btn--primary btn--sm" data-action="print">' + icon('printer', 'ico--sm') + esc(t('rec.print')) + '</button>' +
+        '</div></div>' +
+        '<div class="record__meta">' + prodCell(lot, lot.sku + ' · ' + lot.lotNo + ' · ' + I.date(S.expiryOf(lot)) + ' · ' + units(lot, lot.qty)) + statusTag(pf.status) + actTag(pf.status === 'approved' ? pf.action : pf.rec.action) +
           (dec ? '<span class="small muted">' + esc(t('dr.decided', { verb: t('verb.' + dec.status), name: who(dec.persona).name, time: I.dateTime(dec.at) })) + '</span>' : '') + '</div>' +
-        (pf.status !== 'approved' ? '<div class="banner banner--warn">' + icon('info') + '<p>' + esc(t(pf.status === 'pending' ? 'rec.pending' : 'rec.rejected')) + '</p></div>' : '') +
-        '<div class="record__kpis">' +
-          '<div class="rk rk--hero"><span>' + esc(t('rec.kNet')) + '</span>' + counter('lot-net-' + id, m.net, 'money') + '</div>' +
-          '<div class="rk"><span>' + esc(t('rec.kBase')) + '</span><b>' + esc(money(base.net)) + '</b></div>' +
-          '<div class="rk"><span>' + esc(t('rec.kDiff')) + '</span><b class="' + (diff >= 0 ? 'pos' : 'neg') + '">' + esc(signed(diff)) + '</b></div>' +
-          '<div class="rk"><span>' + esc(t('rec.kDay', { when: when })) + '</span>' + counter('lot-day-' + id, md.net, 'money') + '</div>' +
+        (pf.status !== 'approved' ? '<div class="banner banner--warn" style="margin:var(--s4) var(--s5) 0">' + icon('info') + '<p>' + esc(t(pf.status === 'pending' ? 'rec.pending' : 'rec.rejected')) + '</p></div>' : '') +
+        '<div class="record__stats">' +
+          stat(t('rec.kNet'), counter('lot-net-' + id, m.net, 'money', 'stat__v'), null, 'stat--accent') +
+          stat(t('rec.kBase'), '<span class="stat__v">' + esc(money(base.net)) + '</span>', practiceLabel(base.practice)) +
+          stat(t('rec.kDiff'), '<span class="stat__v ' + (diff >= 0 ? 'pos' : 'neg') + '">' + esc(signed(diff)) + '</span>') +
+          stat(t('rec.kDay', { when: when }), counter('lot-day-' + id, md.net, 'money', 'stat__v')) +
         '</div>' +
-        '<div class="record__grid">' +
-          '<div class="record__col"><h3>' + esc(t('rec.recovered')) + '</h3>' + flow + '</div>' +
-          '<div class="record__col"><h3>' + esc(t('rec.sold')) + '</h3>' + steps + '</div>' +
-        '</div>' +
-        '<div class="record__grid">' +
-          '<div class="record__col"><h3>' + esc(t('rec.where')) + '</h3>' + stack(simDay.units, t('stack.at', { when: when })) + stack(sim.units, t('stack.end')) + removedNote + '</div>' +
-          '<div class="record__col">' + priceChart(lot, pf.plan, rules, day, t('chart.captionRecord')) + '</div>' +
-        '</div>' +
-        '<div class="record__grid">' +
-          '<div class="record__col"><h3>' + esc(t('rec.docs')) + '</h3>' + docs + '</div>' +
-          '<div class="record__col"><h3>' + esc(t('rec.log')) + '</h3>' + logTable + '</div>' +
-        '</div>' +
-        '<p class="sample-note">' + esc(t('common.sample')) + ' · ' + esc(t('rec.co2', { n: num(sim.co2Kg) })) + '</p>' +
+        '<div class="record__tabs"><div class="seg" role="tablist">' + REC_TABS.map(function (k) {
+          return '<button role="tab" data-action="rec-tab" data-tab="' + k + '" aria-selected="' + (tab === k) + '">' + esc(t('rec.tab.' + k)) + '</button>';
+        }).join('') + '</div></div>' +
+        '<div class="record__pane">' + pane + '</div>' +
       '</section>';
     U.hydrateIcons($('#rpLot'));
     $('#rpLotSel').addEventListener('change', function (e) { location.hash = '#/bao-cao/' + e.target.value; });
   }
 
-  var LOG_TONE = { approve: 'pill--ok', reject: 'pill--danger', blocked: 'pill--danger', undo: 'pill--warn', rules: 'pill--info', allocation: 'pill--info', export: '', system: 'pill--dark' };
+  var LOG_TONE = { approve: 'badge--ok', reject: 'badge--danger', blocked: 'badge--danger', undo: 'badge--warn', rules: 'badge--info', allocation: 'badge--info', order: 'badge--info', export: '', system: 'badge--dark' };
   function logTableHTML(list) {
-    return '<table class="tbl tbl--log"><thead><tr><th>' + esc(t('log.time')) + '</th><th>' + esc(t('log.who')) + '</th><th>' + esc(t('log.event')) + '</th></tr></thead><tbody>' +
+    return '<table class="tbl"><thead><tr><th>' + esc(t('log.time')) + '</th><th>' + esc(t('log.who')) + '</th><th>' + esc(t('log.event')) + '</th></tr></thead><tbody>' +
       list.map(function (e) {
-        var w = who(e.persona);
-        return '<tr><td class="small nowrap">' + esc(I.dateTime(e.at)) + '</td><td class="small"><b>' + esc(w.name) + '</b><br><span class="muted">' + esc(w.role) + '</span></td>' +
-          '<td><span class="pill ' + (LOG_TONE[e.type] || '') + '">' + esc(t('lt.' + e.type)) + '</span> <span class="small">' + esc(logText(e)) + '</span></td></tr>';
+        var w = whoOf(e);
+        return '<tr><td class="small mono" style="white-space:nowrap">' + esc(I.dateTime(e.at)) + '</td><td class="small"><b>' + esc(w.name) + '</b><div class="muted">' + esc(w.role) + '</div></td>' +
+          '<td><span class="badge ' + (LOG_TONE[e.type] || '') + '">' + esc(t('lt.' + e.type)) + '</span> <span class="small">' + esc(logText(e)) + '</span></td></tr>';
       }).join('') + '</tbody></table>';
   }
 
   var logFilter = 'all';
   function paintLog() {
     var list = st().log.filter(function (e) { return logFilter === 'all' || e.type === logFilter; });
-    $('#rpLog').innerHTML = '<section class="card"><div class="card__head card__head--wrap"><h3>' + esc(t('log.all')) + '</h3>' +
-      '<div class="card__tools"><select class="select select--sm" id="logFilter" aria-label="' + esc(t('log.filter')) + '">' +
+    $('#rpLog').innerHTML = '<details class="card log"><summary class="card__head"><h2>' + esc(t('log.all')) + ' <span class="muted small mono" style="font-weight:400">' + st().log.length + '</span></h2>' + icon('chevron-down') + '</summary>' +
+      '<div class="toolbar"><select class="select select--sm" id="logFilter" aria-label="' + esc(t('log.filter')) + '">' +
         option('all', t('log.filterAll'), logFilter === 'all') + Object.keys(LOG_TONE).map(function (k) { return option(k, t('lt.' + k), logFilter === k); }).join('') +
-      '</select><button class="btn btn--outline btn--sm" data-action="export-log">' + icon('download', 'ico--sm') + esc(t('log.csv')) + '</button>' +
+      '</select><div class="toolbar__right"><button class="btn btn--outline btn--sm" data-action="export-log">' + icon('download', 'ico--sm') + esc(t('log.csv')) + '</button>' +
       '<button class="btn btn--outline btn--sm" data-action="export-lots">' + icon('download', 'ico--sm') + esc(t('log.financeCsv')) + '</button></div></div>' +
-      (list.length ? '<div class="tablewrap tablewrap--tall">' + logTableHTML(list) + '</div>' : '<p class="muted small pad">' + esc(t('log.empty')) + '</p>') +
-    '</section>';
+      (list.length ? '<div class="tablewrap tablewrap--tall">' + logTableHTML(list) + '</div>' : '<p class="muted small" style="padding:var(--s5)">' + esc(t('log.empty')) + '</p>') +
+    '</details>';
     U.hydrateIcons($('#rpLog'));
-    $('#logFilter').addEventListener('change', function (e) { logFilter = e.target.value; paintLog(); });
+    $('#logFilter').addEventListener('change', function (e) { logFilter = e.target.value; paintLog(); $('#rpLog details').open = true; });
   }
 
   /* ======================================================================
@@ -1218,18 +1122,18 @@
   }
 
   function cardHead(ico, title, sub) {
-    return '<div class="card__head"><h3>' + icon(ico, 'ico--sm') + esc(title) + '</h3>' + (sub ? '<span class="muted small">' + esc(sub) + '</span>' : '') + '</div>';
+    return '<div class="card__head"><h2 style="display:flex;align-items:center;gap:8px">' + icon(ico, 'ico--sm') + esc(title) + '</h2>' + (sub ? '<span class="label">' + esc(sub) + '</span>' : '') + '</div>';
   }
   function rangeField(key, label, unitTxt, value, min, max, step, hint) {
     return '<label class="field"><span class="field__label">' + esc(label) + ' <output class="out" data-unit="' + esc(unitTxt) + '">' + value + ' ' + esc(unitTxt) + '</output></span>' +
       '<input type="range" class="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + value + '" data-rule="' + key + '">' +
       '<span class="field__hint">' + esc(hint) + '</span></label>';
   }
-  function numField(key, label, unitTxt, value, min, max, step) {
-    return '<label class="field"><span class="field__label">' + esc(label) + '</span><div class="numrow"><input class="input input--num" type="number" min="' + min + '" max="' + max + '" step="' + step + '" data-rule="' + key + '" value="' + value + '"><span>' + esc(unitTxt) + '</span></div></label>';
+  function numInput(key, value, min, max, step) {
+    return '<input class="input input--sm input--num" type="number" min="' + min + '" max="' + max + '" step="' + (step || 1) + '" data-rule="' + key + '" value="' + value + '">';
   }
-  function seg(action, attrs, items, cls, aria) {
-    return '<div class="seg' + (cls ? ' ' + cls : '') + '" role="group"' + (aria ? ' aria-label="' + esc(aria) + '"' : '') + '>' + items.map(function (it) {
+  function seg(action, attrs, items, aria) {
+    return '<div class="seg" role="group"' + (aria ? ' aria-label="' + esc(aria) + '"' : '') + '>' + items.map(function (it) {
       return '<button type="button" data-action="' + action + '" ' + attrs + ' data-v="' + it.v + '" aria-pressed="' + it.on + '">' + esc(it.label) + '</button>';
     }).join('') + '</div>';
   }
@@ -1238,66 +1142,58 @@
     var brandRows = E.saleChannels().map(function (c) {
       var o = r.brandByChannel[c.id];
       var v = o === true ? 'show' : (o === false ? 'hide' : 'default');
-      return '<div class="brandrow">' + channelDot(c.id) + '<span>' + esc(L(c.label)) + '</span>' +
+      return '<div><span class="lbl">' + channelDot(c.id) + esc(L(c.label)) + '</span>' +
         seg('brand-ch', 'data-ch="' + c.id + '"', [
           { v: 'default', label: t('ru.bDefault'), on: v === 'default' },
           { v: 'show', label: t('ru.bShow'), on: v === 'show' },
           { v: 'hide', label: t('ru.bHide'), on: v === 'hide' }
-        ], 'seg--sm', t('ru.brandAt', { channel: L(c.label) })) + '</div>';
+        ], t('ru.brandAt', { channel: L(c.label) })) + '</div>';
     }).join('');
-
     var regions = D.REGIONS.map(function (g) {
       var on = r.excludedRegions.indexOf(g.id) !== -1;
       var here = D.CHANNELS.filter(function (c) { return c.regions.indexOf(g.id) !== -1; }).map(function (c) { return L(c.label); });
-      return '<button type="button" class="chip' + (on ? ' is-excl' : '') + '" data-action="region" data-r="' + g.id + '" aria-pressed="' + on + '" title="' + esc(t('ru.regionTitle', { list: here.join(', ') })) + '">' +
+      return '<button type="button" class="chip" data-action="region" data-r="' + g.id + '" aria-pressed="' + on + '" title="' + esc(t('ru.regionTitle', { list: here.join(', ') })) + '">' +
         icon(on ? 'lock' : 'pin', 'ico--sm') + esc(L(g.label)) + '</button>';
     }).join('');
-
     var perUnit = t('ru.perUnit');
     return '<form class="rules__form" id="rulesForm" novalidate onsubmit="return false">' +
-      '<section class="card">' + cardHead('shield', t('ru.price'), t('ru.priceSub')) +
+      '<section class="card">' + cardHead('shield', t('ru.price'), t('ru.priceSub')) + '<div class="card__body">' +
         rangeField('floorPct', t('ru.floor'), t('ru.floorUnit'), r.floorPct, 20, 90, 5, t('ru.floorHint')) +
         rangeField('maxDiscountPct', t('ru.cap'), '%', r.maxDiscountPct, 0, 80, 5, t('ru.capHint')) +
-        '<p class="formmsg" id="minPriceMsg">' + icon('info', 'ico--sm') + esc(t('ru.minMsg', { pct: Math.max(r.floorPct, 100 - r.maxDiscountPct) })) + '</p>' +
-      '</section>' +
-      '<section class="card">' + cardHead('users', t('ru.buyers')) +
-        '<label class="field"><span class="field__label">' + esc(t('ru.buyerCap')) + '</span>' +
-          '<div class="numrow"><input class="input input--num" type="number" min="1" max="50" step="1" data-rule="perBuyerCap" value="' + r.perBuyerCap + '"><span>' + esc(t('ru.buyerUnit')) + '</span></div>' +
-          '<span class="field__hint">' + esc(t('ru.buyerHint')) + '</span></label>' +
-        '<div class="field"><span class="field__label">' + esc(t('ru.brandDefault')) + '</span>' +
-          seg('brand-default', '', [{ v: '1', label: t('ru.brandShow'), on: !!r.showBrand }, { v: '0', label: t('ru.brandHide'), on: !r.showBrand }]) + '</div>' +
-        '<div class="field"><span class="field__label">' + esc(t('ru.perChannel')) + '</span>' + brandRows + '</div>' +
-      '</section>' +
-      '<section class="card">' + cardHead('pin', t('ru.regions')) +
-        '<p class="small muted">' + esc(t('ru.regionsHint')) + '</p>' +
-        '<div class="chips chips--wrap">' + regions + '</div>' +
-      '</section>' +
-      '<section class="card">' + cardHead('clock', t('ru.safety')) +
-        '<div class="safety">' +
-          '<div class="safety__row"><span class="pill pill--ok">' + esc(t('ru.dry')) + '</span><div class="numrow"><span>' + esc(t('ru.dryText')) + '</span><input class="input input--num" type="number" min="30" max="90" data-rule="safetyDays.kho" value="' + r.safetyDays.kho + '"><span>' + esc(t('ru.days')) + '</span></div></div>' +
-          '<div class="safety__row is-config"><span class="pill pill--info">' + esc(t('ru.chilled')) + '</span><div class="numrow"><span>' + esc(t('ru.chilledText')) + '</span><input class="input input--num" type="number" min="7" max="30" data-rule="safetyDays.lanh" value="' + r.safetyDays.lanh + '"><span>' + esc(t('ru.days')) + '</span></div><small class="muted">' + esc(t('ru.chilledNote')) + '</small></div>' +
-          '<div class="safety__row is-off"><span class="pill pill--danger">' + esc(t('ru.fresh')) + '</span><span class="small">' + icon('lock', 'ico--sm') + ' ' + esc(t('ru.refused')) + '</span></div>' +
-          '<div class="safety__row is-off"><span class="pill pill--danger">' + esc(t('ru.expired')) + '</span><span class="small">' + icon('lock', 'ico--sm') + ' ' + esc(t('ru.expiredText')) + '</span></div>' +
+        '<p class="small muted" id="minPriceMsg">' + esc(t('ru.minMsg', { pct: Math.max(r.floorPct, 100 - r.maxDiscountPct) })) + '</p>' +
+      '</div></section>' +
+      '<section class="card">' + cardHead('users', t('ru.buyers')) + '<div class="card__body">' +
+        '<div class="row-list">' +
+          '<div><span>' + esc(t('ru.buyerCap')) + '</span><span class="numrow">' + numInput('perBuyerCap', r.perBuyerCap, 1, 50) + esc(t('ru.buyerUnit')) + '</span></div>' +
+          '<div><span>' + esc(t('ru.brandDefault')) + '</span>' + seg('brand-default', '', [{ v: '1', label: t('ru.brandShow'), on: !!r.showBrand }, { v: '0', label: t('ru.brandHide'), on: !r.showBrand }]) + '</div>' +
+          brandRows +
         '</div>' +
-        '<label class="field"><span class="field__label">' + esc(t('ru.donMin')) + '</span><div class="numrow"><input class="input input--num" type="number" min="7" max="60" data-rule="donationMinDays" value="' + r.donationMinDays + '"><span>' + esc(t('ru.days')) + '</span></div></label>' +
-      '</section>' +
-      '<section class="card">' + cardHead('coins', t('ru.costs'), t('ru.costsSub')) +
-        '<div class="grid2">' +
-          numField('handlingPerUnit', t('ru.handling'), perUnit, r.handlingPerUnit, 0, 10000, 100) +
-          numField('destroyCostPerUnit', t('ru.destroy'), perUnit, r.destroyCostPerUnit, 0, 20000, 100) +
-          numField('liquidationPct', t('ru.liq'), t('ru.pctList'), r.liquidationPct, 0, 80, 1) +
-          numField('returnShipPerUnit', t('ru.retShip'), perUnit, r.returnShipPerUnit, 0, 10000, 100) +
-        '</div>' +
-      '</section>' +
+      '</div></section>' +
+      '<section class="card">' + cardHead('pin', t('ru.regions')) + '<div class="card__body">' +
+        '<p class="small muted">' + esc(t('ru.regionsHint')) + '</p><div class="chips">' + regions + '</div>' +
+      '</div></section>' +
+      '<section class="card">' + cardHead('clock', t('ru.safety')) + '<div class="card__body"><div class="row-list">' +
+        '<div><span class="lbl"><i class="dot" style="--c:var(--z-ok)"></i>' + esc(t('ru.dry')) + '</span><span class="numrow">' + esc(t('ru.dryText')) + numInput('safetyDays.kho', r.safetyDays.kho, 30, 90) + esc(t('ru.days')) + '</span></div>' +
+        '<div><span class="lbl"><i class="dot" style="--c:var(--info)"></i>' + esc(t('ru.chilled')) + ' <span class="muted small">' + esc(t('ru.chilledNote')) + '</span></span><span class="numrow">' + numInput('safetyDays.lanh', r.safetyDays.lanh, 7, 30) + esc(t('ru.days')) + '</span></div>' +
+        '<div><span class="lbl"><i class="dot" style="--c:var(--danger)"></i>' + esc(t('ru.fresh')) + '</span><span class="small neg">' + esc(t('ru.refused')) + '</span></div>' +
+        '<div><span class="lbl"><i class="dot" style="--c:var(--danger)"></i>' + esc(t('ru.expired')) + '</span><span class="small neg">' + esc(t('ru.expiredText')) + '</span></div>' +
+        '<div><span>' + esc(t('ru.donMin')) + '</span><span class="numrow">' + numInput('donationMinDays', r.donationMinDays, 7, 60) + esc(t('ru.days')) + '</span></div>' +
+      '</div></div></section>' +
+      '<section class="card">' + cardHead('coins', t('ru.costs'), t('ru.costsSub')) + '<div class="card__body"><div class="row-list">' +
+        '<div><span>' + esc(t('ru.handling')) + '</span><span class="numrow">' + numInput('handlingPerUnit', r.handlingPerUnit, 0, 10000, 100) + esc(perUnit) + '</span></div>' +
+        '<div><span>' + esc(t('ru.destroy')) + '</span><span class="numrow">' + numInput('destroyCostPerUnit', r.destroyCostPerUnit, 0, 20000, 100) + esc(perUnit) + '</span></div>' +
+        '<div><span>' + esc(t('ru.liq')) + '</span><span class="numrow">' + numInput('liquidationPct', r.liquidationPct, 0, 80) + esc(t('ru.pctList')) + '</span></div>' +
+        '<div><span>' + esc(t('ru.retShip')) + '</span><span class="numrow">' + numInput('returnShipPerUnit', r.returnShipPerUnit, 0, 10000, 100) + esc(perUnit) + '</span></div>' +
+      '</div></div></section>' +
     '</form>';
   }
 
   function rulesSideHTML(r) {
     var dirty = JSON.stringify(r) !== JSON.stringify(R());
     var p = S.persona();
-    return '<aside class="rules__side">' +
-      '<div class="card sticky">' +
-        '<div class="card__head"><h3>' + esc(t('ru.preview')) + '</h3>' + (dirty ? '<span class="pill pill--warn">' + esc(t('ru.unsaved')) + '</span>' : '<span class="pill pill--ok">' + icon('check') + esc(t('ru.active')) + '</span>') + '</div>' +
+    return '<aside class="rules__side"><section class="card sticky">' +
+      '<div class="card__head"><h2>' + esc(t('ru.preview')) + '</h2>' + (dirty ? '<span class="badge badge--warn">' + esc(t('ru.unsaved')) + '</span>' : '<span class="badge badge--ok">' + icon('check') + esc(t('ru.active')) + '</span>') + '</div>' +
+      '<div class="card__body" style="display:grid;gap:var(--s4)">' +
         rulesSummary(r) +
         '<label class="field"><span class="field__label">' + esc(t('ru.tryLot')) + '</span><select class="select select--sm" id="previewLot">' +
           D.LOTS.map(function (l) { return option(l.id, l.lotNo + ' · ' + lotName(l), l.id === previewLot); }).join('') + '</select></label>' +
@@ -1306,18 +1202,17 @@
         '<div class="rules__btns">' +
           '<button type="button" class="btn btn--ghost btn--sm" data-action="rules-default">' + esc(t('ru.default')) + '</button>' +
           '<button type="button" class="btn btn--outline btn--sm" data-action="rules-discard"' + (dirty ? '' : ' disabled') + '>' + esc(t('ru.discard')) + '</button>' +
-          '<button type="button" class="btn btn--primary btn--sm" data-action="rules-save"' + (dirty && p.canApprove ? '' : ' disabled') + '>' + icon('check', 'ico--sm') + esc(t('ru.save')) + '</button>' +
+          '<button type="button" class="btn btn--primary btn--sm" data-action="rules-save"' + (dirty && p.canApprove ? '' : ' disabled') + '>' + esc(t('ru.save')) + '</button>' +
         '</div>' +
         (!p.canApprove ? '<p class="small muted">' + esc(t('ru.noRight', { role: L(p.role) })) + '</p>' : '') +
-      '</div>' +
-    '</aside>';
+      '</div></section></aside>';
   }
 
   function rulesSummary(r) {
     var hidden = E.saleChannels().filter(function (c) { return !E.brandVisible(c.id, r); }).map(function (c) { return L(c.label); });
     var excl = r.excludedRegions.map(regionLabel);
     var blocked = D.CHANNELS.filter(function (c) { return E.channelAccess(c, r).blocked; }).map(function (c) { return L(c.label); });
-    function li(ico, text) { return '<li>' + icon(ico, 'ico--sm') + esc(text) + '</li>'; }
+    function li(ico, text) { return '<li>' + icon(ico) + esc(text) + '</li>'; }
     return '<ul class="summary">' +
       li('shield', t('sum.floor', { pct: Math.max(r.floorPct, 100 - r.maxDiscountPct) })) +
       li('tag', t('sum.cap', { pct: r.maxDiscountPct })) +
@@ -1337,11 +1232,11 @@
       if (upper != null && upper <= safety) return '';
       var from = Math.max(s.minDays, safety + 1);
       var pr = E.priceAt(lot, from, r);
-      var note = pr.clamped ? '<span class="neg">' + esc(t(pr.min.binding === 'floor' ? 'lad.clampFloor' : 'lad.clampCap')) + '</span>' : esc(t(s.cut ? 'lad.onStep' : 'lad.hold'));
-      return '<tr' + (pr.clamped ? ' class="is-clamp"' : '') + '><td>' + (upper == null ? '≥ ' + from : from + '–' + upper) + '</td><td class="num">' + s.cut + '%</td><td class="num"><b>' + esc(money(pr.price)) + '</b></td><td class="small">' + note + '</td></tr>';
+      var note = pr.clamped ? '<span class="neg">' + esc(t(pr.min.binding === 'floor' ? 'lad.clampFloor' : 'lad.clampCap')) + '</span>' : '<span class="muted">' + esc(t(s.cut ? 'lad.onStep' : 'lad.hold')) + '</span>';
+      return '<tr><td class="mono">' + (upper == null ? '≥ ' + from : from + '–' + upper) + '</td><td class="num mono">' + s.cut + '%</td><td class="num mono"><b>' + esc(money(pr.price)) + '</b></td><td class="small">' + note + '</td></tr>';
     }).join('');
     return '<table class="tbl tbl--ladder"><thead><tr><th>' + esc(t('lad.left')) + '</th><th class="num">' + esc(t('lad.step')) + '</th><th class="num">' + esc(t('lad.price')) + '</th><th></th></tr></thead><tbody>' + rows +
-      '<tr class="is-off"><td>≤ ' + safety + '</td><td colspan="3">' + icon('lock', 'ico--sm') + ' ' + esc(t('lad.pulled', { action: actLabel(E.postSafetyAction(lot, safety, r).action).toLowerCase() })) + '</td></tr></tbody></table>' +
+      '<tr class="is-off"><td class="mono">≤ ' + safety + '</td><td colspan="3">' + icon('lock', 'ico--sm') + ' ' + esc(t('lad.pulled', { action: actLabel(E.postSafetyAction(lot, safety, r).action).toLowerCase() })) + '</td></tr></tbody></table>' +
       '<p class="small muted">' + esc(t('ru.ladderNote')) + '</p>';
   }
 
@@ -1351,12 +1246,10 @@
       return s + E.simulateLot(l, { action: a, allocations: E.defaultAllocation(l, a, rules) }, rules, {}).money.net;
     }, 0);
   }
-
   function impactBox(r) {
     var next = recommendedNet(r), diff = next - recommendedNet(R());
-    return '<div class="impact"><span>' + esc(t('ru.impact')) + '</span>' +
-      '<div>' + counter('impact', next, 'short') +
-      (Math.abs(diff) > 1 ? '<span class="pill ' + (diff >= 0 ? 'pill--ok' : 'pill--danger') + '">' + esc(t('ru.impactDiff', { delta: signed(diff) })) + '</span>' : '<span class="muted small">' + esc(t('ru.impactSame')) + '</span>') + '</div></div>';
+    return '<div class="impact"><span>' + esc(t('ru.impact')) + '</span><div>' + counter('impact', next, 'short', 'impact__v') +
+      (Math.abs(diff) > 1 ? '<span class="badge ' + (diff >= 0 ? 'badge--ok' : 'badge--danger') + '">' + esc(t('ru.impactDiff', { delta: signed(diff) })) + '</span>' : '<span class="muted small">' + esc(t('ru.impactSame')) + '</span>') + '</div></div>';
   }
 
   var RULE_LIMITS = {
@@ -1370,7 +1263,6 @@
     if (parts.length === 2) rulesDraft[parts[0]][parts[1]] = value;
     else rulesDraft[path] = value;
   }
-
   function onRuleInput(el) {
     var key = el.dataset.rule;
     var lim = RULE_LIMITS[key] || [0, 1e9];
@@ -1387,7 +1279,6 @@
     clearTimeout(rulesTimer);
     rulesTimer = setTimeout(refreshRulesSide, el.type === 'range' ? 60 : 250);
   }
-
   /* Only the preview column is redrawn so the form keeps focus. */
   function refreshRulesSide() {
     var side = $('.rules__side', view);
@@ -1395,9 +1286,10 @@
     var tmp = document.createElement('div');
     tmp.innerHTML = rulesSideHTML(rulesDraft);
     side.replaceWith(tmp.firstChild);
+    U.hydrateIcons(view);
     countAll($('.rules__side', view));
     var msgEl = $('#minPriceMsg');
-    if (msgEl) msgEl.innerHTML = icon('info', 'ico--sm') + esc(t('ru.minMsg', { pct: Math.max(rulesDraft.floorPct, 100 - rulesDraft.maxDiscountPct) }));
+    if (msgEl) msgEl.textContent = t('ru.minMsg', { pct: Math.max(rulesDraft.floorPct, 100 - rulesDraft.maxDiscountPct) });
   }
 
   function saveRules() {
@@ -1468,7 +1360,7 @@
   function exportLog() {
     var rows = [H(['time', 'operator', 'role', 'type', 'id', 'lotNo', 'action', 'detail'])];
     st().log.forEach(function (e) {
-      var lot = e.lotId ? E.lotById(e.lotId) : null, w = who(e.persona);
+      var lot = e.lotId ? E.lotById(e.lotId) : null, w = whoOf(e);
       rows.push([I.dateTime(e.at), w.name, w.role, t('lt.' + e.type), e.lotId || '', lot ? lot.lotNo : '', e.action ? actLabel(e.action) : '', logText(e)]);
     });
     U.download('mrwowo-decision-log-' + stamp() + '.csv', csv(rows), 'text/csv;charset=utf-8');
@@ -1480,9 +1372,9 @@
 
   function exportLotCsv(id) {
     var lot = E.lotById(id), p = projected(lot), sim = p.sim, m = sim.money;
-    var rows = [[t('csv.record'), lot.lotNo, lotName(lot), lot.brand, t('common.sample')], [], H(['date', 'kind', 'channel', 'qty', 'price', 'amount'])];
+    var rows = [[t('csv.record'), lot.lotNo, lotName(lot), lot.brand, t('common.sample')], [], H(['date', 'kind', 'channel', 'qty', 'price', 'amount', 'order'])];
     sim.events.forEach(function (e) {
-      rows.push([isoDay(S.dateAt(e.day)), t('ev.' + e.kind), e.channel ? chLabel(e.channel) : '', e.units, e.price, e.units * e.price]);
+      rows.push([isoDay(S.dateAt(e.day)), t('ev.' + e.kind), e.channel ? chLabel(e.channel) : '', e.units, e.price, e.units * e.price, e.orderId || '']);
     });
     rows.push([]);
     [['flow.revenue', m.revenue], ['flow.refund', m.refund], ['flow.fees', -m.fees], ['flow.ship', -m.shipping], ['flow.handling', -m.handling],
@@ -1510,7 +1402,7 @@
         disposition: p.sim.disposition && p.sim.disposition.action, co2KgEstimate: p.sim.co2Kg },
       baseline: p.base,
       log: st().log.filter(function (e) { return e.lotId === id; }).map(function (e) {
-        var w = who(e.persona);
+        var w = whoOf(e);
         return { at: e.at, operator: w.name, role: w.role, type: e.type, text: logText(e) };
       })
     };
@@ -1526,10 +1418,11 @@
   var TOUR = [
     { at: '0:00', route: 'lo-hang' },
     { at: '0:30', route: 'lo-hang', play: true },
-    { at: '1:10', route: 'luat' },
-    { at: '1:40', route: 'duyet' },
-    { at: '2:15', route: 'kenh', play: true },
-    { at: '2:35', route: 'bao-cao' },
+    { at: '1:00', route: 'luat' },
+    { at: '1:30', route: 'duyet' },
+    { at: '2:00', route: 'kenh', play: true },
+    { at: '2:20', route: 'kenh', shop: true },
+    { at: '2:40', route: 'bao-cao' },
     { at: '3:00', route: 'bao-cao' }
   ];
 
@@ -1537,17 +1430,19 @@
     var el = $('#tour'), tr = st().tour;
     el.hidden = !tr.open;
     if (!tr.open) return;
+    tr.step = Math.min(tr.step, TOUR.length - 1);
     var s = TOUR[tr.step], n = tr.step + 1;
-    var goLabel = route.name !== s.route ? t('tour.go') : (playTimer ? t('tour.pause') : t('tour.play'));
+    var go = route.name !== s.route ? '<button class="btn btn--outline btn--xs" data-action="tour-go">' + esc(t('tour.go')) + '</button>'
+      : (s.play ? '<button class="btn btn--outline btn--xs" data-action="tour-go">' + esc(playTimer ? t('tour.pause') : t('tour.play')) + '</button>'
+        : (s.shop ? '<a class="btn btn--outline btn--xs" href="shop.html" target="_blank" rel="noopener">' + esc(t('nav.shop')) + '</a>' : ''));
     el.setAttribute('aria-label', t('nav.tour'));
     el.innerHTML =
-      '<div class="tour__head"><span class="pill pill--dark">' + icon('clock') + s.at + '</span><b>' + esc(t('tour.title', { i: n, n: TOUR.length })) + '</b>' +
+      '<div class="tour__head"><span class="badge badge--dark mono">' + s.at + '</span><span>' + esc(t('tour.title', { i: n, n: TOUR.length })) + '</span>' +
       '<button class="icon-btn icon-btn--sm" data-action="tour-toggle" aria-label="' + esc(t('tour.close')) + '">' + icon('x') + '</button></div>' +
       '<h3>' + esc(t('tour.' + n + '.t')) + '</h3><p>' + esc(t('tour.' + n + '.x')) + '</p>' +
       '<div class="tour__dots">' + TOUR.map(function (_, i) { return '<i class="' + (i === tr.step ? 'is-on' : (i < tr.step ? 'is-done' : '')) + '"></i>'; }).join('') + '</div>' +
       '<div class="tour__btns">' +
-        '<button class="btn btn--ghost btn--xs" data-action="tour-prev"' + (tr.step === 0 ? ' disabled' : '') + '>' + esc(t('tour.prev')) + '</button>' +
-        (route.name !== s.route || s.play ? '<button class="btn btn--outline btn--xs" data-action="tour-go">' + esc(goLabel) + '</button>' : '') +
+        '<button class="btn btn--ghost btn--xs" data-action="tour-prev"' + (tr.step === 0 ? ' disabled' : '') + '>' + esc(t('tour.prev')) + '</button>' + go +
         '<button class="btn btn--primary btn--xs" data-action="tour-next"' + (tr.step === TOUR.length - 1 ? ' disabled' : '') + '>' + esc(t('tour.next')) + '</button>' +
       '</div>';
   }
@@ -1561,10 +1456,10 @@
   }
 
   /* ======================================================================
-     Sidebar, menu, operator, badges, language
+     Chrome: nav, menu, operator, badges, language, cross-tab sync
      ====================================================================== */
-  function openNav() { $('#side').classList.add('is-open'); $('.side-scrim').hidden = false; }
-  function closeNav() { $('#side').classList.remove('is-open'); $('.side-scrim').hidden = true; }
+  function openNav() { $('#nav').classList.add('is-open'); $('.nav-scrim').hidden = false; }
+  function closeNav() { $('#nav').classList.remove('is-open'); $('.nav-scrim').hidden = true; }
 
   function syncBadges() {
     var n = D.LOTS.filter(function (l) { return S.planFor(l).status === 'pending'; }).length;
@@ -1572,21 +1467,18 @@
     b.textContent = n;
     b.hidden = !n;
   }
-
   function syncPersona() {
     $('#personaSelect').innerHTML = D.PERSONAS.map(function (p) { return option(p.id, p.name + ' — ' + L(p.role), p.id === st().persona); }).join('');
     $('#personaAva').textContent = S.persona().initials;
   }
-
   function syncStatic() {
     $('#ownerName').textContent = L(D.OWNER.short);
     $('#ownerAva').textContent = D.OWNER.initials;
     $('#contrastLabel').textContent = t(U.getContrast() ? 'menu.contrastOff' : 'menu.contrastOn');
     syncPersona();
-    syncTimebar();
+    syncClock();
     syncChrome();
   }
-
   function toggleMenu(force) {
     var pop = $('#menuPop'), btn = $('[data-action="menu-toggle"]');
     var open = force != null ? force : pop.hidden;
@@ -1596,11 +1488,21 @@
 
   I.onChange(function () {
     syncStatic();
-    renderedIds = '';
     render();
     renderTour();
     if (drawerLot) renderDrawer(drawerLot);
-    U.toast(t('toast.lang'));
+  });
+
+  /* Orders placed in the shop (another tab) land here. */
+  var knownOrders = st().orders.length;
+  S.onExternal(function () {
+    rev++;
+    syncStatic();
+    syncBadges();
+    var r = ROUTES[route.name];
+    if (r.update) r.update(); else render();
+    if (st().orders.length > knownOrders) U.toast(t('toast.newOrder', { id: st().orders[0].id }));
+    knownOrders = st().orders.length;
   });
 
   /* ======================================================================
@@ -1608,11 +1510,11 @@
      ====================================================================== */
   document.addEventListener('click', function (e) {
     var a = e.target.closest('[data-action]');
-    var lotCard = e.target.closest('[data-lot]');
+    var row = e.target.closest('[data-lot]');
     var focusLink = e.target.closest('[data-focus-lot]');
-    if (focusLink) { focusLot = focusLink.dataset.focusLot; st().ui.approvalTab = 'pending'; }
+    if (focusLink) { focusLot = focusLink.dataset.focusLot; openRows[focusLot] = true; st().ui.approvalTab = 'pending'; }
     if (!a) {
-      if (lotCard && view.contains(lotCard)) openDrawer(lotCard.dataset.lot);
+      if (row && view.contains(row)) openDrawer(row.dataset.lot);
       if (!e.target.closest('.menu')) toggleMenu(false);
       return;
     }
@@ -1622,18 +1524,15 @@
       case 'nav-open': openNav(); break;
       case 'nav-close': closeNav(); break;
       case 'menu-toggle': toggleMenu(); break;
-      case 'seed':
-        toggleMenu(false);
-        drafts = {}; allocDraft = {}; rulesDraft = null;
-        S.seedScenario(); touch(); render();
-        U.toast(t('toast.seed'));
-        break;
-      case 'reset':
+      case 'reset-scenario':
+      case 'reset-blank':
         toggleMenu(false);
         if (!window.confirm(t('toast.resetConfirm'))) break;
         togglePlay(false);
-        drafts = {}; allocDraft = {}; rulesDraft = null; lastVals = {};
-        S.reset(); touch(); syncStatic(); render();
+        drafts = {}; allocDraft = {}; rulesDraft = null; lastVals = {}; openRows = {};
+        S.resetTo(action === 'reset-blank' ? 'blank' : 'scenario');
+        knownOrders = 0;
+        touch(); syncStatic(); render();
         U.toast(t('toast.reset'));
         break;
       case 'export-lots': toggleMenu(false); exportLots(); break;
@@ -1649,24 +1548,32 @@
         U.setContrast(!U.getContrast());
         $('#contrastLabel').textContent = t(U.getContrast() ? 'menu.contrastOff' : 'menu.contrastOn');
         toggleMenu(false);
-        U.toast(t(U.getContrast() ? 'toast.contrastOn' : 'toast.contrastOff'));
         break;
-      case 'play': togglePlay(); if (route.name === 'kenh') updateChannels(); renderTour(); break;
+      case 'play': togglePlay(); renderTour(); break;
       case 'day-step': setDay(st().day + (+a.dataset.step)); break;
       case 'day-reset': togglePlay(false); setDay(0); break;
       case 'drawer-close': closeDrawer(); break;
-      case 'open-lot': openDrawer(a.dataset.id); break;
-      // Lot board
-      case 'zone': st().ui.filter = a.dataset.z; S.save(); $('#zoneChips').innerHTML = zoneChips(boardLots(st().day).counts); paintBoardList(boardLots(st().day), true); break;
+      // Lots
+      case 'zone': st().ui.filter = a.dataset.z; S.save(); updateLots(); break;
       case 'view': st().ui.view = a.dataset.v; S.save(); render(); break;
-      case 'clear-filters': Object.assign(st().ui, { filter: 'all', cat: '', wh: '', q: '' }); S.save(); render(); break;
+      case 'sort': {
+        var s = st().ui.sort;
+        if (s.key === a.dataset.k) s.dir = s.dir === 'asc' ? 'desc' : 'asc';
+        else { s.key = a.dataset.k; s.dir = ['value', 'stock', 'price'].indexOf(a.dataset.k) !== -1 ? 'desc' : 'asc'; }
+        S.save();
+        paintLots(boardLots(st().day));
+        U.hydrateIcons($('#lotList'));
+        break;
+      }
+      case 'clear-filters': Object.assign(st().ui, { filter: 'all', cat: '', q: '' }); S.save(); render(); break;
       // Approvals
       case 'appr-tab': st().ui.approvalTab = a.dataset.tab; S.save(); render(); break;
-      case 'approve': if (approve(a.dataset.id)) render(); else if (route.name === 'duyet') refreshApprItem(a.dataset.id); break;
+      case 'appr-toggle': openRows[a.dataset.id] = !openRows[a.dataset.id]; refreshApprItem(a.dataset.id); break;
+      case 'approve': if (approve(a.dataset.id)) render(); else if (route.name === 'duyet') { openRows[a.dataset.id] = true; refreshApprItem(a.dataset.id); } break;
       case 'reject': reject(a.dataset.id); render(); break;
       case 'undo': undo(a.dataset.id); render(); break;
       case 'approve-all': approveAll(); break;
-      // Channel split
+      // Channels
       case 'alloc-auto': {
         var lot = E.lotById(channelLotId()), act = channelAction(lot);
         allocDraft[lot.id] = Object.assign(E.defaultAllocation(lot, act, R()), { __action: act });
@@ -1688,6 +1595,8 @@
       }
       // Report
       case 'report-lot': location.hash = '#/bao-cao/' + a.dataset.id; break;
+      case 'bars-sort': barsSort = a.dataset.k; paintPortfolio(); break;
+      case 'rec-tab': st().ui.reportTab = a.dataset.tab; S.save(); paintLotRecord(reportLotId()); countAll($('#rpLot')); break;
       // Rules
       case 'brand-default': rulesDraft.showBrand = a.dataset.v === '1'; renderRules(); break;
       case 'brand-ch':
@@ -1709,9 +1618,9 @@
       case 'tour-next': tourGo(st().tour.step + 1); break;
       case 'tour-prev': tourGo(st().tour.step - 1); break;
       case 'tour-go': {
-        var s = TOUR[st().tour.step];
-        if (route.name !== s.route) location.hash = '#/' + s.route;
-        else if (s.play) { togglePlay(); renderTour(); }
+        var ts = TOUR[st().tour.step];
+        if (route.name !== ts.route) location.hash = '#/' + ts.route;
+        else if (ts.play) { togglePlay(); renderTour(); }
         break;
       }
     }
@@ -1779,8 +1688,8 @@
   /* ======================================================================
      Boot
      ====================================================================== */
-  $$('[data-logo]').forEach(function (el) { el.outerHTML = U.logo(30); });
-  $$('[data-lang-switch]').forEach(function (el) { el.outerHTML = I.switcher(); });
+  $$('[data-logo]').forEach(function (el) { el.outerHTML = U.logo(28); });
+  $$('[data-lang-switch]').forEach(function (el) { el.outerHTML = I.switcher(el.getAttribute('data-lang-switch') === 'dark'); });
   U.hydrateIcons();
   I.applyDom();
   if (!location.hash) history.replaceState(null, '', '#/lo-hang');

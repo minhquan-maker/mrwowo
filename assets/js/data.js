@@ -58,6 +58,7 @@
 
   /*
    * Channels are only "doors": every order is written back to one lot record.
+   * Total sales reach is kept at 3.0 so adding the storefront does not change recommendations.
    *   reach        — sell-through multiplier vs. the lot's base demand
    *   feePct       — channel fee / commission on revenue
    *   shipPerUnit  — VND per unit (× the lot's bulk factor)
@@ -77,14 +78,20 @@
       note: { en: '12 group leaders, ~4,800 members (sample); extra 5% off for group orders', vi: '12 trưởng nhóm, ~4.800 thành viên (mẫu); giảm thêm 5% cho đơn nhóm' }
     },
     {
-      id: 'partner', kind: 'sale', reach: 1.4, feePct: 12, shipPerUnit: 900, extraCutPct: 0,
+      id: 'partner', kind: 'sale', reach: 0.8, feePct: 12, shipPerUnit: 900, extraCutPct: 0,
       regions: ['hcm', 'hn', 'dn', 'mt', 'mb'], color: '#C2410C', icon: 'phone',
       label: { en: 'Partner app (illustrative)', vi: 'App đối tác (minh họa)' },
       note: { en: 'Illustrative channel for a partner app — no actual partnership', vi: 'Kênh minh họa cho một ứng dụng đối tác — chưa có hợp tác thực tế' }
     },
     {
+      id: 'shop', kind: 'sale', reach: 0.6, feePct: 3, shipPerUnit: 800, extraCutPct: 0,
+      regions: ['hcm', 'hn', 'dn', 'mt', 'mb'], color: '#0891B2', icon: 'bag',
+      label: { en: 'mrwowo shop', vi: 'Cửa hàng mrwowo' },
+      note: { en: 'Our own storefront for end buyers — the buyer demo (shop.html)', vi: 'Cửa hàng trực tuyến cho người mua cuối — bản demo người mua (shop.html)' }
+    },
+    {
       id: 'charity', kind: 'donate', reach: 0, feePct: 0, shipPerUnit: 300, extraCutPct: 0,
-      regions: ['hcm', 'hn', 'dn', 'mt', 'mb'], color: '#7C6FD0', icon: 'heart',
+      regions: ['hcm', 'hn', 'dn', 'mt', 'mb'], color: '#A855F7', icon: 'heart',
       label: { en: 'Charity partner', vi: 'Tổ chức từ thiện' },
       note: { en: 'Food bank (sample) — accepts stock above a minimum shelf life, with a handover record', vi: 'Ngân hàng thực phẩm (mẫu) — nhận hàng còn đủ hạn, có biên bản' }
     }
@@ -144,12 +151,14 @@
    *   daysLeft — days to expiry as of the demo's "today"; the expiry date is derived on load
    *   demand   — units/day at list price on a reference channel (estimate)
    *   bulk     — size factor for freight/disposal (1 = small pack, 4 = case)
+   *   art, c1, c2 — pack illustration used by the shop (shape + two colours)
    */
   var LOTS = [
     {
       id: 'L01', sku: 'GV-SNK-RB54', brand: 'Giòn Vui', cat: 'snack', storage: 'kho', lotNo: 'GV2604-15A',
       qty: 2400, base: 12000, daysLeft: 52, warehouse: 'BD', demand: 13, bulk: 0.5, practice: 'thanh_ly',
       bundleWith: 'L03', charityOk: true, sealed: true,
+      art: 'pouch', c1: '#FBBF24', c2: '#B45309',
       name: { en: 'Seaweed potato chips 54g', vi: 'Snack khoai tây vị rong biển 54g' },
       unit: { en: 'packs', vi: 'gói' },
       story: { en: 'Extra stock ordered for the festival season; the season is over.', vi: 'Nhập thêm cho mùa lễ hội, lễ qua còn tồn.' }
@@ -158,6 +167,7 @@
       id: 'L02', sku: 'BB-BIS-454', brand: 'Bếp Bơ', cat: 'snack', storage: 'kho', lotNo: 'BB2512-02',
       qty: 640, base: 115000, daysLeft: 74, warehouse: 'HN', demand: 3, bulk: 2, practice: 'thanh_ly',
       charityOk: true, sealed: true,
+      art: 'tin', c1: '#FCD34D', c2: '#92400E',
       name: { en: 'Butter cookies, 454g tin', vi: 'Bánh quy bơ hộp thiếc 454g' },
       unit: { en: 'tins', vi: 'hộp' },
       story: { en: 'Year-end gift stock, over-ordered by 20%.', vi: 'Hàng biếu dịp cuối năm, đơn đặt dư 20%.' }
@@ -166,6 +176,7 @@
       id: 'L03', sku: 'BP-NTL-250', brand: 'Bứt Phá', cat: 'drink', storage: 'kho', lotNo: 'BP2603-27',
       qty: 380, base: 216000, daysLeft: 38, warehouse: 'BD', demand: 5, bulk: 4, practice: 'thanh_ly',
       charityOk: false, sealed: true,
+      art: 'can', c1: '#F87171', c2: '#991B1B',
       name: { en: 'Energy drink 250ml (case of 24)', vi: 'Nước tăng lực lon 250ml (thùng 24)' },
       unit: { en: 'cases', vi: 'thùng' },
       story: { en: 'Summer promotion over-ordered and never cleared.', vi: 'Chương trình hè đặt quá tay, chưa xả hết.' }
@@ -175,6 +186,7 @@
       qty: 520, base: 192000, daysLeft: 29, warehouse: 'DN', demand: 4, bulk: 4, practice: 'huy',
       supplierReturn: { pct: 60, minDaysLeft: 20, partner: { en: 'Lá Mát factory (sample)', vi: 'Nhà máy Lá Mát (mẫu)' } },
       charityOk: true, sealed: true,
+      art: 'bottle', c1: '#86EFAC', c2: '#15803D',
       name: { en: 'Lemon green tea 455ml (case of 24)', vi: 'Trà xanh chanh chai 455ml (thùng 24)' },
       unit: { en: 'cases', vi: 'thùng' },
       story: { en: 'Just crossed the safety line; the contract allows return to the factory until 20 days.', vi: 'Vừa chạm đường an toàn; hợp đồng cho phép trả nhà máy trước 20 ngày.' }
@@ -185,6 +197,7 @@
       transfer: { to: 'HN', costPerUnit: 1800, transitDays: 4, demandFactor: 2.2,
         reason: { en: 'the North is entering winter; Hanoi sells ~2.2× faster', vi: 'miền Bắc vào mùa lạnh, Hà Nội bán nhanh ~2,2 lần' } },
       charityOk: true, sealed: true,
+      art: 'box', c1: '#D6A77A', c2: '#78350F',
       name: { en: '3-in-1 instant coffee, box of 20', vi: 'Cà phê hòa tan 3in1 hộp 20 gói' },
       unit: { en: 'boxes', vi: 'hộp' },
       story: { en: 'Slow in the South after the last promotion.', vi: 'Kho miền Nam bán chậm sau đợt khuyến mãi.' }
@@ -193,6 +206,7 @@
       id: 'L06', sku: 'BN-MLY-65', brand: 'Bếp Nhà', cat: 'snack', storage: 'kho', lotNo: 'BN2604-03',
       qty: 300, base: 168000, daysLeft: 34, warehouse: 'HN', demand: 7, bulk: 3, practice: 'thanh_ly',
       charityOk: true, sealed: true,
+      art: 'cup', c1: '#FCA5A5', c2: '#DC2626',
       name: { en: 'Hot & sour shrimp cup noodles 65g (case of 24)', vi: 'Mì ly tôm chua cay 65g (thùng 24)' },
       unit: { en: 'cases', vi: 'thùng' },
       story: { en: 'Cup design changed; the old-packaging run must clear.', vi: 'Đổi thiết kế ly, lô bao bì cũ cần xả.' }
@@ -201,6 +215,7 @@
       id: 'L07', sku: 'MA-YM-500', brand: 'Mộc An', cat: 'snack', storage: 'kho', lotNo: 'MA2607-20',
       qty: 450, base: 89000, daysLeft: 120, warehouse: 'BD', demand: 2, bulk: 1, practice: 'thanh_ly',
       charityOk: true, sealed: true,
+      art: 'pouch', c1: '#E7D3A8', c2: '#A16207',
       name: { en: 'Rolled oats 500g', vi: 'Ngũ cốc yến mạch 500g' },
       unit: { en: 'bags', vi: 'gói' },
       story: { en: 'New arrival with plenty of time — monitor only.', vi: 'Lô mới về, còn nhiều thời gian — chỉ cần theo dõi.' }
@@ -209,6 +224,7 @@
       id: 'L08', sku: 'BX-HD-500', brand: 'Bình Phước Xanh', cat: 'snack', storage: 'kho', lotNo: 'BX2605-14',
       qty: 260, base: 185000, daysLeft: 63, warehouse: 'BD', demand: 1, bulk: 1, practice: 'thanh_ly',
       bundleWith: 'L02', charityOk: true, sealed: true,
+      art: 'jar', c1: '#FDBA74', c2: '#C2410C',
       name: { en: 'Salted roasted cashews, 500g jar', vi: 'Hạt điều rang muối hũ 500g' },
       unit: { en: 'jars', vi: 'hũ' },
       story: { en: 'Gift item that sells slowly on its own.', vi: 'Hàng quà tặng, bán lẻ chậm khi đứng một mình.' }
@@ -217,6 +233,7 @@
       id: 'L09', sku: 'TM-DG-650', brand: 'Thảo Mộc Việt', cat: 'personal', storage: 'kho', lotNo: 'TM2607-05',
       qty: 720, base: 96000, daysLeft: 88, warehouse: 'HN', demand: 2, bulk: 1, practice: 'thanh_ly',
       bundleWith: 'L10', charityOk: true, sealed: true,
+      art: 'bottle', c1: '#FDE68A', c2: '#CA8A04',
       name: { en: 'Pomelo shampoo 650ml', vi: 'Dầu gội bưởi 650ml' },
       unit: { en: 'bottles', vi: 'chai' },
       story: { en: 'A retail chain delisted the line and returned stock.', vi: 'Chuỗi bán lẻ ngừng dòng sản phẩm, trả về kho.' }
@@ -225,6 +242,7 @@
       id: 'L10', sku: 'TM-ST-900', brand: 'Thảo Mộc Việt', cat: 'personal', storage: 'kho', lotNo: 'TM2604-22',
       qty: 540, base: 135000, daysLeft: 45, warehouse: 'HN', demand: 3, bulk: 1.5, practice: 'thanh_ly',
       charityOk: true, sealed: true,
+      art: 'bottle', c1: '#6EE7B7', c2: '#047857',
       name: { en: 'Green tea body wash 900g', vi: 'Sữa tắm hương trà xanh 900g' },
       unit: { en: 'bottles', vi: 'chai' },
       story: { en: 'New packaging launching; old stock must clear first.', vi: 'Đổi bao bì mới, lô cũ cần xả trước khi lên kệ bao bì mới.' }
@@ -233,6 +251,7 @@
       id: 'L11', sku: 'RX-KDR-180', brand: 'Răng Xinh', cat: 'personal', storage: 'kho', lotNo: 'RX2603-30',
       qty: 1800, base: 32000, daysLeft: 27, warehouse: 'DN', demand: 12, bulk: 0.5, practice: 'huy',
       charityOk: true, sealed: true,
+      art: 'tube', c1: '#CBD5E1', c2: '#1E293B',
       name: { en: 'Charcoal toothpaste 180g', vi: 'Kem đánh răng than tre 180g' },
       unit: { en: 'tubes', vi: 'tuýp' },
       story: { en: 'Past the safety line; the charity still accepts it with over 21 days left.', vi: 'Đã qua đường an toàn; từ thiện vẫn nhận vì còn trên 21 ngày.' }
@@ -243,6 +262,7 @@
       transfer: { to: 'BD', costPerUnit: 4500, transitDays: 5, demandFactor: 2.5,
         reason: { en: 'Da Nang sells 1 can/day; the HCMC area is ~2.5× faster', vi: 'Đà Nẵng bán 1 can/ngày; khu vực TP.HCM nhanh ~2,5 lần' } },
       charityOk: true, sealed: true,
+      art: 'jug', c1: '#93C5FD', c2: '#1D4ED8',
       name: { en: 'Sunshine laundry liquid, 3.6kg', vi: 'Nước giặt hương nắng can 3,6kg' },
       unit: { en: 'cans', vi: 'can' },
       story: { en: 'Over-allocated to Central Vietnam.', vi: 'Phân bổ dư cho miền Trung.' }
@@ -251,6 +271,7 @@
       id: 'L13', sku: 'BY-KGU-80', brand: 'Bé Yêu', cat: 'home', storage: 'kho', lotNo: 'BY2603-12',
       qty: 1500, base: 28000, daysLeft: 36, warehouse: 'DN', demand: 22, bulk: 0.5, practice: 'thanh_ly',
       charityOk: true, sealed: true,
+      art: 'pouch', c1: '#BAE6FD', c2: '#0369A1',
       name: { en: 'Alcohol-free wet wipes, 80 sheets', vi: 'Khăn giấy ướt không cồn gói 80 tờ' },
       unit: { en: 'packs', vi: 'gói' },
       story: { en: 'Ordered against a forecast 30% above actual demand.', vi: 'Đặt theo dự báo cao hơn thực tế 30%.' }
@@ -259,6 +280,7 @@
       id: 'L14', sku: 'GV-BG-PM12', brand: 'Giòn Vui', cat: 'snack', storage: 'kho', lotNo: 'GV2603-09',
       qty: 1100, base: 42000, daysLeft: 25, warehouse: 'BD', demand: 8, bulk: 1, practice: 'huy',
       charityOk: true, sealed: true,
+      art: 'pouch', c1: '#FDE047', c2: '#A16207',
       name: { en: 'Cheese rice crackers, pack of 12', vi: 'Bánh gạo vị phô mai gói 12 cái' },
       unit: { en: 'packs', vi: 'gói' },
       story: { en: 'Display stock left over when the promotion ended.', vi: 'Hàng trưng bày khuyến mãi, kết thúc chương trình còn dư.' }
@@ -267,6 +289,7 @@
       id: 'L15', sku: 'ST-XP-280', brand: 'Sạch Thơm', cat: 'home', storage: 'kho', lotNo: 'ST2602-26',
       qty: 420, base: 64000, daysLeft: 24, warehouse: 'BD', demand: 2, bulk: 1, practice: 'huy',
       charityOk: false, sealed: true,
+      art: 'spray', c1: '#C4B5FD', c2: '#6D28D9',
       name: { en: 'Lavender room spray 280ml', vi: 'Xịt phòng hương oải hương 280ml' },
       unit: { en: 'bottles', vi: 'chai' },
       story: { en: 'Outside the charity\'s accepted categories; no return clause.', vi: 'Không thuộc danh mục nhận của tổ chức từ thiện; không có điều khoản trả hàng.' }

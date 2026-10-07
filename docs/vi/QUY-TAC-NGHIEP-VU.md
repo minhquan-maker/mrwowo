@@ -115,3 +115,23 @@ Thu hồi ròng = Doanh thu + Hoàn NCC − Phí kênh − Vận chuyển − X�
 
 Mỗi thao tác ghi: thời điểm, người, vai trò, loại (`approve`, `reject`, `blocked`, `undo`, `rules`, `allocation`, `export`, `system`), lô và thông điệp dạng `{ key, vars }` — nên nhật ký hiển thị theo ngôn ngữ đang chọn.
 Xuất CSV (UTF-8 có BOM, mở được bằng Excel) ở màn Báo cáo.
+
+## 9. Niêm yết trên cửa hàng — `storefront(lô, kế hoạch, luật, ngày, 'shop')`
+
+Cửa hàng cho người mua (`shop.html`) chỉ là một kênh bán khác (`shop`: độ phủ 0,6, phí 3%, vận chuyển 800 đ/đơn vị,
+mọi khu vực). Một lô chỉ được niêm yết khi thỏa **tất cả**:
+
+| Điều kiện | Nếu không |
+|---|---|
+| Quyết định của lô **đã duyệt** và là hành động bán | không niêm yết |
+| Số ngày còn lại > ngưỡng an toàn | `removed` |
+| Kênh cửa hàng không bị chặn bởi vùng loại trừ | `blocked` |
+| Lô chuyển kho đã qua số ngày vận chuyển | `transit` |
+| Phân bổ cho cửa hàng − đã bán ở cửa hàng − đơn đang chờ > 0, và tồn − mọi đơn đang chờ > 0 | `soldOut` |
+
+- Giá = `priceAt()` cho kênh `shop` tại ngày mô phỏng, gồm cả mức giảm thủ công đã duyệt — luôn nằm giữa giá sàn và
+  giá gốc. Thẻ sản phẩm hiện mức giá thấp hơn tiếp theo và ngày áp dụng.
+- Mỗi dòng giỏ hàng tối đa `min(giới hạn mỗi người mua, số còn lại)`; người mua ở vùng loại trừ không đặt được hàng.
+- Đơn `{ id, day, channel: 'shop', units, price }` được ghi vào đúng ngày **trước** nhu cầu mô phỏng, theo giá người mua
+  đã trả; số lượng đã hứa cho đơn ở ngày sau được giữ lại. Đơn hiện trong sổ cái chung (`SH-…`), hồ sơ lô và nhật ký
+  quyết định (loại *Đơn cửa hàng*).

@@ -233,5 +233,71 @@ test('an excluded channel produces no sales', function () {
   assert.equal(s.byChannel.minimart.units, 0);
 });
 
+console.log('\nShop channel & real orders');
+
+function shopPlan(l, r, orders) {
+  var a = 'giam_gia';
+  return { action: a, allocations: E.defaultAllocation(l, a, r), orders: orders || [] };
+}
+
+test('the shop channel gets a share of every sale allocation', function () {
+  var l = lot('L01'), a = E.defaultAllocation(l, 'giam_gia', rules());
+  assert.ok(a.shop > 0, 'shop allocation ' + a.shop);
+  assert.ok(E.allocTotal(a) <= l.qty);
+});
+
+test('a real order is booked on its day, at its price, and shows in the ledger', function () {
+  var l = lot('L01'), r = rules();
+  var price = E.priceAt(l, l.daysLeft - 3, r, { channel: 'shop' }).price;
+  var p = shopPlan(l, r, [{ id: 'MW-1001', day: 3, channel: 'shop', units: 4, price: price }]);
+  var s = E.simulateLot(l, p, r, {});
+  var ev = s.events.filter(function (e) { return e.orderId === 'MW-1001'; });
+  assert.equal(ev.length, 1);
+  assert.equal(ev[0].day, 3);
+  assert.equal(ev[0].units, 4);
+  assert.equal(ev[0].price, price);
+  assert.ok(E.ledger(l, s).some(function (row) { return row.orderId === 'MW-1001' && row.id.indexOf('SH-') === 0; }));
+});
+
+test('storefront: listed within the shop allocation, priced at or above the floor', function () {
+  var l = lot('L01'), r = rules(), p = shopPlan(l, r);
+  var floor = E.minPrice(l.base, r).price;
+  for (var d = 0; d <= 60; d += 4) {
+    var o = E.storefront(l, p, r, d, 'shop');
+    if (!o.listed) continue;
+    assert.ok(o.price >= floor && o.price <= l.base, 'day ' + d + ' price ' + o.price);
+    assert.ok(o.available <= p.allocations.shop);
+    if (o.next) assert.ok(o.next.price < o.price && o.next.price >= floor);
+  }
+});
+
+test('storefront: delisted at the safety line and for non-sale actions', function () {
+  var l = lot('L01'), r = rules(), p = shopPlan(l, r);
+  var atLine = l.daysLeft - E.safetyDays(l, r);
+  assert.equal(E.storefront(l, p, r, atLine, 'shop').reason, 'removed');
+  assert.equal(E.storefront(l, { action: 'quyen_gop', allocations: { charity: l.qty } }, r, 0, 'shop').reason, 'notSale');
+});
+
+test('storefront: an order reduces what is available and is never double-booked', function () {
+  var l = lot('L01'), r = rules();
+  var before = E.storefront(l, shopPlan(l, r), r, 2, 'shop').available;
+  var price = E.storefront(l, shopPlan(l, r), r, 2, 'shop').price;
+  var p = shopPlan(l, r, [{ id: 'MW-1', day: 2, channel: 'shop', units: 5, price: price }]);
+  assert.equal(E.storefront(l, p, r, 2, 'shop').available, before - 5);
+  var s = E.simulateLot(l, p, r, {});
+  assert.equal(s.units.sold + s.units.donated + s.units.returned + s.units.destroyed + s.units.stock, l.qty);
+});
+
+test('units promised to a later order are not sold to simulated demand first', function () {
+  var l = lot('L01'), r = rules();
+  var p0 = shopPlan(l, r);
+  var cap = p0.allocations.shop;
+  var price = E.priceAt(l, l.daysLeft - 10, r, { channel: 'shop' }).price;
+  var p = shopPlan(l, r, [{ id: 'MW-9', day: 10, channel: 'shop', units: cap, price: price }]);
+  var s = E.simulateLot(l, p, r, {});
+  var booked = s.events.filter(function (e) { return e.orderId === 'MW-9'; }).reduce(function (n, e) { return n + e.units; }, 0);
+  assert.equal(booked, cap);
+});
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed\n');
 process.exit(failed ? 1 : 0);

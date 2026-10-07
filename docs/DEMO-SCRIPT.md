@@ -8,22 +8,24 @@
 
 ## Prepare (30 seconds, before the meeting)
 
-1. Open `app.html#/lo-hang`, then ⋮ → **Reset sample data**.
+1. Open `seller.html#/lo-hang`, then ⋮ → **Reset to the demo scenario** (12 approved, 1 rejected, 2 pending).
+   Open `shop.html` in a second tab (the sidebar link **Open the shop** does this).
 2. Pick the language your interviewee prefers (**EN** / **VI**, top right).
 3. Operator: **Nguyễn Thu Hà — Head of Trade Marketing**.
 4. Optional: open **3-minute demo script** in the sidebar for on-screen prompts.
-5. Short on time: ⋮ → **Load pre-approved scenario** (8 approved, 1 rejected).
+5. To show approvals from zero instead: ⋮ → **Start from scratch** (the shop is then empty until you approve).
 
 ## Talk track
 
 | Time | Screen | Do | Say |
 |---|---|---|---|
-| 0:00 | Lot board | Point at card colours, open a red card | "These are 15 dry lots from one distributor. Colour is days left. Every lot has a proposal and a reason — this green tea just crossed 30 days and the contract allows a factory return, so the proposal is *return to supplier*." |
-| 0:30 | Lot board | Press ▶ on the timeline | "Let time pass. Prices step down… and **stop at the floor** you set. A lot that reaches 30 days **pulls itself** from every channel — nobody has to remember." |
-| 1:10 | Owner rules | Move the floor, hide the brand on Zalo, exclude Ho Chi Minh City | "The rules are yours: floor, discount cap, units per buyer, where the brand is hidden, which regions are off-limits so you never compete with your main distribution. The side panel shows what each rule does to recovery." |
-| 1:40 | Approvals | On the cup noodles, push the manual discount to 20 pts, press Approve | "Not even an approver can break the rules. Blocked — and the attempt is in the log." Then press **Approve valid proposals**. |
-| 2:15 | Channel split | Pick the chips lot, press ▶ | "One lot split across mini-marts, a Zalo group-buy, a partner app — illustrative only — and a charity. Price per channel, brand shown or hidden by rule. Orders from every door flow into **one lot record**." |
-| 2:35 | Lot report | Point at the big number, open a lot record, press **Finance summary CSV** | "This is the number finance cares about: **net recovery** — after channel fees, freight and handling — against liquidation or disposal. Per lot: what sold, at what price, where the rest went, who approved and when." |
+| 0:00 | Lots | Point at the coloured dots, sort by *Left*, open a red lot | "These are 15 dry lots from one distributor. Colour is days left. Every lot has a proposal and a reason — this green tea just crossed 30 days and the contract allows a factory return, so the proposal is *return to supplier*." |
+| 0:30 | Lots | Press ▶ on the timeline | "Let time pass. Prices step down… and **stop at the floor** you set. A lot that reaches 30 days **pulls itself** from every channel — nobody has to remember." |
+| 1:00 | Rules | Move the floor, hide the brand on Zalo, exclude Ho Chi Minh City | "The rules are yours: floor, discount cap, units per buyer, where the brand is hidden, which regions are off-limits so you never compete with your main distribution. The side panel shows what each rule does to recovery." |
+| 1:30 | Approvals | On the seaweed chips, open **Details**, push the manual discount to 20 pts, press Approve | "Not even an approver can break the rules. Blocked — and the attempt is in the log." Then press **Approve N valid proposals**. |
+| 2:00 | Channels | Pick the butter cookies, press ▶ | "One lot split across mini-marts, a Zalo group-buy, a partner app — illustrative only — our own shop and a charity. Price per channel, brand shown or hidden by rule. Orders from every door flow into **one lot record**." |
+| 2:20 | Shop (2nd tab) | Add 2–3 items, check out, switch back to the seller tab | "This is what a shopper sees: genuine goods, the best-before date, the next price drop — never below your floor. The order just landed in your lot record." |
+| 2:40 | Report | Point at the big number, open a lot record, press **Finance summary CSV** | "This is the number finance cares about: **net recovery** — after channel fees, freight and handling — against liquidation or disposal. Per lot: what sold, at what price, where the rest went, who approved and when." |
 | 3:00 | — | Stop | **"Would you pay for this?"** |
 
 ## Follow-up questions (pick 3–5)

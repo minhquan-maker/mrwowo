@@ -41,7 +41,7 @@ test('EN and VI use the same {placeholders}', function () {
 });
 
 test('every key used in HTML (data-i18n*) exists', function () {
-  ['index.html', 'app.html'].forEach(function (f) {
+  ['index.html', 'seller.html', 'shop.html'].forEach(function (f) {
     var html = read(f), re = /data-i18n(?:-html)?="([^"]+)"|data-i18n-attr="([^"]+)"/g, m;
     while ((m = re.exec(html))) {
       var keys = m[1] ? [m[1]] : m[2].split(';').map(function (p) { return p.split(':')[1].trim(); });
@@ -51,7 +51,7 @@ test('every key used in HTML (data-i18n*) exists', function () {
 });
 
 test('every static t(\'…\') key in JS exists', function () {
-  ['assets/js/app.js', 'assets/js/landing.js'].forEach(function (f) {
+  ['assets/js/seller.js', 'assets/js/shop.js', 'assets/js/landing.js'].forEach(function (f) {
     var js = read(f), re = /\bt\('([a-zA-Z0-9.\-]+)'/g, m;
     while ((m = re.exec(js))) {
       if (/[.\-]$/.test(m[1])) continue; // dynamic prefix, e.g. t('status.' + s) — covered below
@@ -60,18 +60,25 @@ test('every static t(\'…\') key in JS exists', function () {
   });
 });
 
-test('dynamic keys (page.*, status.*, zone.*, lt.*, doc.*, u.*, tour.*) exist', function () {
+test('dynamic keys (page.*, status.*, zone.*, lt.*, rec.tab.*, sh.sort.*, tour.*, …) exist', function () {
   var need = [];
   ['luat', 'lo-hang', 'duyet', 'kenh', 'bao-cao'].forEach(function (r) { need.push('page.' + r, 'page.' + r + '.sub'); });
   ['pending', 'approved', 'rejected'].forEach(function (s) { need.push('status.' + s, 'ap.tab.' + s); });
   ['approved', 'rejected'].forEach(function (s) { need.push('verb.' + s); });
   ['all', 'ok', 'watch', 'act', 'urgent', 'removed', 'expired'].forEach(function (z) { need.push('zone.' + z); });
-  ['approve', 'reject', 'blocked', 'undo', 'rules', 'allocation', 'export', 'system'].forEach(function (x) { need.push('lt.' + x); });
   ['donation', 'return', 'disposal', 'transfer'].forEach(function (x) { need.push('doc.' + x); });
   ['sold', 'donated', 'returned', 'destroyed', 'stock'].forEach(function (x) { need.push('u.' + x); });
   ['sale', 'donate', 'return', 'destroy', 'transfer'].forEach(function (x) { need.push('ev.' + x); });
   ['floorPct', 'maxDiscountPct', 'perBuyerCap', 'showBrand', 'donationMinDays', 'handlingPerUnit', 'destroyCostPerUnit', 'liquidationPct', 'returnShipPerUnit', 'safetyKho', 'safetyLanh', 'regions', 'brand'].forEach(function (x) { need.push('rc.' + x); });
-  for (var i = 1; i <= 7; i++) need.push('tour.' + i + '.t', 'tour.' + i + '.x');
+  ['approve', 'reject', 'blocked', 'undo', 'rules', 'allocation', 'order', 'export', 'system'].forEach(function (x) { need.push('lt.' + x); });
+  ['overview', 'cash', 'sales', 'docs', 'log'].forEach(function (x) { need.push('rec.tab.' + x); });
+  ['uplift', 'net', 'days'].forEach(function (x) { need.push('rp.sort.' + x); });
+  ['featured', 'price-asc', 'price-desc', 'discount', 'expiry-soon', 'expiry-late'].forEach(function (x) { need.push('sh.sort.' + x); });
+  ['delivery', 'pickup'].forEach(function (x) { need.push('sh.method.' + x); });
+  ['None', 'Saved', 'Search'].forEach(function (x) { need.push('sh.empty' + x, 'sh.empty' + x + 'Text'); });
+  [1, 2, 3].forEach(function (i) { need.push('sh.how' + i + '.t', 'sh.how' + i + '.x'); });
+  ['channel', 'price', 'fee', 'alloc', 'soldNow', 'sold', 'net'].forEach(function (x) { need.push('ch.col.' + x); });
+  for (var i = 1; i <= 8; i++) need.push('tour.' + i + '.t', 'tour.' + i + '.x');
   need.forEach(function (k) { assert.ok(k in I.DICT.en, k); });
 });
 

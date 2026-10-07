@@ -58,7 +58,19 @@
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 6-10 7L2 6"/>',
     box: '<path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4a2 2 0 0 0 1-1.7z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/>',
     target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
-    play2: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z" fill="currentColor"/>'
+    play2: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z" fill="currentColor"/>',
+    bag: '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18M16 10a4 4 0 0 1-8 0"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    minus: '<path d="M5 12h14"/>',
+    trash: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+    sort: '<path d="m7 15 5 5 5-5M7 9l5-5 5 5"/>',
+    'sort-up': '<path d="m7 14 5-5 5 5"/>',
+    'sort-down': '<path d="m7 10 5 5 5-5"/>',
+    external: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    receipt: '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 2 2V2l-2 2-3-2-3 2-3-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+    sparkles: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/>',
+    filter: '<path d="M22 3H2l8 9.5V19l4 2v-8.5z"/>',
+    'arrow-down': '<path d="M12 5v14M19 12l-7 7-7-7"/>'
   };
 
   function icon(name, cls) {
@@ -78,10 +90,40 @@
   function logo(size) {
     var s = size || 30;
     return '<svg class="brand__mark" width="' + s + '" height="' + s + '" viewBox="0 0 32 32" aria-hidden="true">' +
-      '<rect width="32" height="32" rx="9" fill="#15803D"/>' +
+      '<rect width="32" height="32" rx="9" fill="#09090B"/>' +
       '<path d="M8 9.5A1.5 1.5 0 0 1 9.5 8h7.4c.4 0 .8.2 1.1.4l6.6 6.6a1.5 1.5 0 0 1 0 2.1l-7.3 7.3a1.5 1.5 0 0 1-2.1 0L8.4 17.8a1.5 1.5 0 0 1-.4-1.1z" fill="#fff"/>' +
-      '<path d="m12.6 16.2 2.4 2.4 4.6-4.8" fill="none" stroke="#15803D" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
-      '<circle cx="12" cy="12" r="1.6" fill="#F97316"/></svg>';
+      '<path d="m12.6 16.2 2.4 2.4 4.6-4.8" fill="none" stroke="#059669" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="12" cy="12" r="1.6" fill="#10B981"/></svg>';
+  }
+
+  /*
+   * Product pack illustration (adapted from the earlier prototype's art()).
+   * kind: pouch | tin | can | bottle | box | cup | jar | tube | jug | spray
+   */
+  function packArt(kind, c1, c2, uid) {
+    var id = 'g' + String(uid || kind + c1).replace(/[^a-z0-9]/gi, '');
+    var f = 'url(#' + id + 'a)', sh = 'url(#' + id + 's)';
+    var label = function (x, y, w, h) {
+      return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="2" fill="#fff" opacity=".92"/>' +
+        '<rect x="' + (x + 3) + '" y="' + (y + 4) + '" width="' + (w - 6) + '" height="2.2" rx="1.1" fill="' + c2 + '" opacity=".55"/>' +
+        '<rect x="' + (x + 3) + '" y="' + (y + 8.4) + '" width="' + (w - 10) + '" height="2.2" rx="1.1" fill="' + c2 + '" opacity=".32"/>';
+    };
+    var P = {
+      pouch: '<path d="M19 21h26l-2.6 45a4 4 0 0 1-4 3.8H25.6a4 4 0 0 1-4-3.8L19 21z" fill="' + f + '"/><path d="M19 21h26l-.4 7H19.4z" fill="' + c2 + '"/><path d="M34 21h11l-2.6 45a4 4 0 0 1-4 3.8H34z" fill="' + sh + '"/>' + label(24, 40, 16, 14),
+      tin: '<ellipse cx="32" cy="25" rx="19" ry="6.5" fill="' + c2 + '"/><path d="M13 25v33c0 3.6 8.5 6.5 19 6.5s19-2.9 19-6.5V25" fill="' + f + '"/><path d="M38 25.6V64c7.6-.8 13-3.2 13-6V25" fill="' + sh + '"/>' + label(19, 37, 26, 14),
+      can: '<rect x="20" y="16" width="24" height="50" rx="5" fill="' + f + '"/><rect x="20" y="16" width="24" height="5" rx="2" fill="' + c2 + '"/><rect x="34" y="16" width="10" height="50" rx="4" fill="' + sh + '"/>' + label(23, 36, 18, 14),
+      bottle: '<path d="M27 15h10v7l5 6v35a5 5 0 0 1-5 5H27a5 5 0 0 1-5-5V28l5-6z" fill="' + f + '"/><path d="M34 15h3v7l5 6v35a5 5 0 0 1-5 5h-3z" fill="' + sh + '"/><rect x="26" y="8" width="12" height="8" rx="2.5" fill="' + c2 + '"/>' + label(22, 38, 20, 14),
+      box: '<path d="M14 24h36v40a3 3 0 0 1-3 3H17a3 3 0 0 1-3-3z" fill="' + f + '"/><path d="M14 24l6-8h24l6 8z" fill="' + c2 + '"/><path d="M38 24h12v40a3 3 0 0 1-3 3h-9z" fill="' + sh + '"/>' + label(19, 38, 22, 14),
+      cup: '<path d="M21 25h22l-2.6 36a5 5 0 0 1-5 4.6h-6.8a5 5 0 0 1-5-4.6z" fill="' + f + '"/><ellipse cx="32" cy="25" rx="11" ry="3.6" fill="' + c2 + '"/><path d="M34 25h9l-2.6 36a5 5 0 0 1-5 4.6H34z" fill="' + sh + '"/>' + label(25, 38, 14, 13),
+      jar: '<rect x="19" y="27" width="26" height="31" rx="5" fill="' + f + '"/><rect x="34" y="27" width="11" height="31" rx="5" fill="' + sh + '"/><rect x="16" y="18" width="32" height="11" rx="3.5" fill="' + c2 + '"/>' + label(23, 36, 18, 13),
+      tube: '<path d="M25 21h14v38a7 7 0 0 1-14 0z" fill="' + f + '"/><path d="M33 21h6v38a7 7 0 0 1-6 6.9z" fill="' + sh + '"/><rect x="27" y="12" width="10" height="10" rx="2.5" fill="' + c2 + '"/>' + label(27, 33, 10, 14),
+      jug: '<path d="M18 26a6 6 0 0 1 6-6h14l8 8v34a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4z" fill="' + f + '"/><path d="M38 20h4v7h4z" fill="' + c2 + '"/><rect x="24" y="12" width="10" height="9" rx="2" fill="' + c2 + '"/><path d="M36 26h10v36a4 4 0 0 1-4 4h-6z" fill="' + sh + '"/>' + label(22, 38, 20, 14),
+      spray: '<rect x="22" y="26" width="20" height="40" rx="5" fill="' + f + '"/><path d="M26 14h12v12H26z" fill="' + c2 + '"/><path d="M38 16h7v4h-7z" fill="' + c2 + '"/><rect x="34" y="26" width="8" height="40" rx="4" fill="' + sh + '"/>' + label(25, 40, 14, 14)
+    };
+    return '<svg viewBox="0 0 64 80" aria-hidden="true"><defs>' +
+      '<linearGradient id="' + id + 'a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + c1 + '"/><stop offset="1" stop-color="' + c2 + '"/></linearGradient>' +
+      '<linearGradient id="' + id + 's" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>' +
+      '<ellipse cx="32" cy="72" rx="17" ry="3.2" fill="#09090B" opacity=".08"/>' + (P[kind] || P.box) + '</svg>';
   }
 
   function esc(s) {
@@ -169,6 +211,7 @@
     icon: icon,
     hydrateIcons: hydrateIcons,
     logo: logo,
+    packArt: packArt,
     esc: esc,
     reduced: reduced,
     animateNumber: animateNumber,

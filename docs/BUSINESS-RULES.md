@@ -115,3 +115,23 @@ Net recovery = Revenue + Supplier refund − Channel fees − Freight − Handli
 
 Every action records time, operator, role, type (`approve`, `reject`, `blocked`, `undo`, `rules`, `allocation`, `export`, `system`), lot and a message
 stored as `{ key, vars }` — so the log reads in whichever language is selected. Export as UTF-8 CSV with BOM (opens cleanly in Excel) from the Lot report.
+
+## 9. Shop listing — `storefront(lot, plan, rules, day, 'shop')`
+
+The buyer storefront (`shop.html`) is just another sales channel (`shop`: reach 0.6, fee 3%, freight 800 ₫/unit,
+all regions). A lot is listed only when **all** of these hold:
+
+| Condition | Otherwise |
+|---|---|
+| The lot's decision is **approved** and the action is a sale action | not listed |
+| Days left > safety line | `removed` |
+| The shop channel is not blocked by excluded regions | `blocked` |
+| A transfer has finished its transit days | `transit` |
+| Shop allocation − sold on the shop − pending shop orders > 0, and stock − all pending orders > 0 | `soldOut` |
+
+- Price = `priceAt()` for the `shop` channel on the simulated day, including any approved manual discount — always
+  between the floor and list. The card shows the next lower price and when it starts.
+- A basket line is capped at `min(per-buyer limit, available)`; buyers in an excluded region cannot check out.
+- An order `{ id, day, channel: 'shop', units, price }` is booked on its day **before** simulated demand, at the price the
+  buyer paid; units promised to a later order are reserved. It appears in the unified ledger (`SH-…`), the lot record
+  and the decision log (type *Shop order*).
