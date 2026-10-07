@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title data-i18n="meta.landingTitle">mrwowo — sell short-dated stock at a price you control</title>
+  <meta name="description" data-i18n-attr="content:meta.landingDesc" content="mrwowo helps FMCG brand owners and distributors clear short-dated stock: a hard price floor, many sales channels, and a record for every lot that finance and audit can use.">
+  <meta name="theme-color" content="#FAFAFA">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/landing.css">
+</head>
+<body class="landing">
+  <a class="skip" href="#main" data-i18n="common.skip">Skip to content</a>
+
+  <header class="lhdr" id="hdr">
+    <div class="wrap lhdr__in">
+      <a class="brand" href="index.html"><span data-logo></span>mrwowo</a>
+      <nav class="lhdr__nav" data-i18n-attr="aria-label:lp.nav">
+        <a href="#how" data-i18n="lp.how">How it works</a>
+        <a href="#numbers" data-i18n="lp.numbers">Results</a>
+        <a href="#faq" data-i18n="lp.faq">FAQ</a>
+      </nav>
+      <div class="lhdr__tools">
+        <span data-lang-switch></span>
+        <a class="btn btn--ghost btn--sm lhdr__shop" href="shop.html"><i data-icon="bag" data-class="ico--sm"></i><span data-i18n="lp.shop">Shop</span></a>
+        <a class="btn btn--primary btn--sm" href="seller.html"><span data-i18n="lp.seller">Seller console</span><i data-icon="arrow-right" data-class="ico--sm"></i></a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="lhero">
+      <div class="wrap lhero__in">
+        <div class="lhero__copy">
+          <span class="pill"><span class="pill__dot"></span><span data-i18n="lp.eyebrow">Clickable demo · sample data</span></span>
+          <h1 data-i18n-html="lp.title">Short-dated stock, sold at <span>a price you control.</span></h1>
+          <p class="lhero__lead" data-i18n="lp.lead">mrwowo holds your short-dated lots and your rules. Channels are just doors — every order, from any of them, posts back to one record per lot.</p>
+          <div class="lhero__cta">
+            <a class="btn btn--primary btn--lg" href="seller.html"><span data-i18n="lp.e.seller.cta">Open the console</span><i data-icon="arrow-right" data-class="ico--sm"></i></a>
+            <a class="btn btn--outline btn--lg" href="shop.html"><i data-icon="bag" data-class="ico--sm"></i><span data-i18n="lp.e.shop.cta">Open the shop</span></a>
+          </div>
+        </div>
+        <div class="lhero__visual" id="lotCard" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <!-- Two entry points -->
+    <section class="wrap lsec entries" aria-labelledby="pickTitle">
+      <h2 class="lsec__title" id="pickTitle" data-i18n="lp.pickTitle">Two sides of the same demo</h2>
+      <div class="entries__grid">
+        <a class="entry entry--dark" href="seller.html">
+          <span class="entry__tag" data-i18n="lp.e.seller.tag">For brands &amp; distributors</span>
+          <span class="entry__ico"><i data-icon="sliders"></i></span>
+          <h3 data-i18n="lp.e.seller.title">Seller console</h3>
+          <p data-i18n="lp.e.seller.text">Set the floor and discount cap, approve an action per lot, split it across channels and read net recovery per lot.</p>
+          <span class="entry__go"><span data-i18n="lp.e.seller.cta">Open the console</span><i data-icon="arrow-right" data-class="ico--sm"></i></span>
+        </a>
+        <a class="entry" href="shop.html">
+          <span class="entry__tag" data-i18n="lp.e.shop.tag">For shoppers</span>
+          <span class="entry__ico"><i data-icon="bag"></i></span>
+          <h3 data-i18n="lp.e.shop.title">mrwowo shop</h3>
+          <p data-i18n="lp.e.shop.text">Browse approved lots, see the price schedule, add to basket and check out. Orders land in the seller’s lot record.</p>
+          <span class="entry__go"><span data-i18n="lp.e.shop.cta">Open the shop</span><i data-icon="arrow-right" data-class="ico--sm"></i></span>
+        </a>
+      </div>
+      <p class="entries__tip"><i data-icon="info" data-class="ico--sm"></i><span data-i18n="lp.tip">Tip: open both in separate tabs — an order in the shop appears in the seller console straight away.</span></p>
+    </section>
+
+    <!-- Numbers (computed by the engine) -->
+    <section class="lnum" id="numbers" aria-labelledby="numTitle">
+      <div class="wrap">
+        <span class="label lnum__eyebrow" data-i18n="lp.n.eyebrow">15 sample lots · one distributor</span>
+        <h2 id="numTitle" data-i18n="lp.n.title">Net recovery, not just sell-through</h2>
+        <div class="lnum__grid">
+          <div class="lnum__item lnum__item--hi"><span data-i18n="lp.n.net">Net recovery with mrwowo</span><b class="mono" data-stat="net">—</b><small data-stat="ratio"></small></div>
+          <div class="lnum__item"><span data-i18n="lp.n.base">Current practice (liquidation / disposal)</span><b class="mono" data-stat="base">—</b></div>
+          <div class="lnum__item"><span data-i18n="lp.n.uplift">Difference</span><b class="mono" data-stat="uplift">—</b></div>
+          <div class="lnum__item"><span data-i18n="lp.n.saved">Units kept out of disposal</span><b class="mono" data-stat="saved">—</b><small data-stat="co2"></small></div>
+        </div>
+        <p class="lnum__note" data-i18n="lp.n.note">Sample data / estimates.</p>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section class="wrap lsec" id="how" aria-labelledby="howTitle">
+      <span class="label" data-i18n="lp.s.eyebrow">How it works</span>
+      <h2 class="lsec__title" id="howTitle" data-i18n="lp.s.title">Four steps, one record per lot</h2>
+      <ol class="steps">
+        <li class="step"><span class="step__n mono">01</span><i data-icon="sliders"></i><h3 data-i18n="lp.s1.t">Set the rules once</h3><p data-i18n="lp.s1.x"></p></li>
+        <li class="step"><span class="step__n mono">02</span><i data-icon="grid"></i><h3 data-i18n="lp.s2.t">See every lot by days left</h3><p data-i18n="lp.s2.x"></p></li>
+        <li class="step"><span class="step__n mono">03</span><i data-icon="shield"></i><h3 data-i18n="lp.s3.t">Approve within the rules</h3><p data-i18n="lp.s3.x"></p></li>
+        <li class="step"><span class="step__n mono">04</span><i data-icon="split"></i><h3 data-i18n="lp.s4.t">Sell through many doors</h3><p data-i18n="lp.s4.x"></p></li>
+      </ol>
+    </section>
+
+    <!-- Guarantees -->
+    <section class="wrap lsec" aria-labelledby="gTitle">
+      <h2 class="lsec__title" id="gTitle" data-i18n="lp.g.title">What never changes</h2>
+      <div class="guar">
+        <div class="guar__item"><i data-icon="lock"></i><div><h3 data-i18n="lp.g1.t">The floor is a hard rule</h3><p data-i18n="lp.g1.x"></p></div></div>
+        <div class="guar__item"><i data-icon="box"></i><div><h3 data-i18n="lp.g2.t">Dry, sealed goods only</h3><p data-i18n="lp.g2.x"></p></div></div>
+        <div class="guar__item"><i data-icon="file"></i><div><h3 data-i18n="lp.g3.t">A record for every lot</h3><p data-i18n="lp.g3.x"></p></div></div>
+      </div>
+    </section>
+
+    <!-- FAQ + contact -->
+    <section class="wrap lsec lsplit" id="faq">
+      <div>
+        <h2 class="lsec__title" data-i18n="lp.q.title">Questions</h2>
+        <div class="faq">
+          <details><summary><span data-i18n="lp.q1.q"></span><i data-icon="plus" data-class="ico--sm"></i></summary><p data-i18n="lp.q1.a"></p></details>
+          <details><summary><span data-i18n="lp.q2.q"></span><i data-icon="plus" data-class="ico--sm"></i></summary><p data-i18n="lp.q2.a"></p></details>
+          <details><summary><span data-i18n="lp.q3.q"></span><i data-icon="plus" data-class="ico--sm"></i></summary><p data-i18n="lp.q3.a"></p></details>
+          <details><summary><span data-i18n="lp.q4.q"></span><i data-icon="plus" data-class="ico--sm"></i></summary><p data-i18n="lp.q4.a"></p></details>
+        </div>
+      </div>
+      <form class="contact" id="leadForm" novalidate>
+        <h2 data-i18n="lp.c.title">Talk to us</h2>
+        <p class="muted" data-i18n="lp.c.text"></p>
+        <label class="field"><span class="field__label" data-i18n="lp.c.name">Name</span><input class="input" name="name" autocomplete="name" required></label>
+        <label class="field"><span class="field__label" data-i18n="lp.c.company">Company</span><input class="input" name="company" autocomplete="organization" required></label>
+        <label class="field"><span class="field__label" data-i18n="lp.c.contact">Email or phone</span><input class="input" name="contact" autocomplete="email" required></label>
+        <button class="btn btn--primary btn--block" type="submit" data-i18n="lp.c.send">Request a walkthrough</button>
+        <p class="contact__msg small" id="leadMsg" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="lftr">
+    <div class="wrap lftr__in">
+      <a class="brand brand--light" href="index.html"><span data-logo></span>mrwowo</a>
+      <nav class="lftr__links">
+        <a href="shop.html" data-i18n="lp.shop">Shop</a>
+        <a href="seller.html" data-i18n="lp.seller">Seller console</a>
+        <a href="https://github.com/minhquan-maker/mrwowo#readme">README</a>
+      </nav>
+      <p class="lftr__note" data-i18n="lp.f.note">Sample data / estimates.</p>
+      <p class="lftr__copy mono" id="copyright"></p>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/landing.js"></script>
+</body>
+</html>

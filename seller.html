@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>mrwowo seller</title>
+  <meta name="description" content="mrwowo seller dashboard: owner rules, lot board with time simulation, approvals, channel split and a net-recovery report per lot.">
+  <meta name="theme-color" content="#0A0A0B">
+  <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/seller.css">
+</head>
+<body class="seller">
+  <a class="skip" href="#view" data-i18n="common.skip">Skip to content</a>
+
+  <!-- Sidebar -->
+  <aside class="nav" id="nav" data-i18n-attr="aria-label:nav.label">
+    <div class="nav__head">
+      <a class="brand brand--light" href="index.html"><span data-logo></span>mrwowo<span class="brand__tag" data-i18n="nav.seller">seller</span></a>
+      <button class="icon-btn icon-btn--sm nav__close" data-action="nav-close" data-i18n-attr="aria-label:nav.close"><i data-icon="x"></i></button>
+    </div>
+
+    <div class="owner">
+      <span class="owner__ava" id="ownerAva">MP</span>
+      <div>
+        <b id="ownerName">Minh Phat Distribution</b>
+        <span data-i18n="owner.sub">Goods owner · fictional</span>
+      </div>
+    </div>
+
+    <nav class="nav__links">
+      <a href="#/luat" data-route="luat"><i data-icon="sliders"></i><span data-i18n="nav.rules">Owner rules</span></a>
+      <a href="#/lo-hang" data-route="lo-hang"><i data-icon="grid"></i><span data-i18n="nav.board">Lots</span></a>
+      <a href="#/duyet" data-route="duyet"><i data-icon="approve"></i><span data-i18n="nav.approvals">Approvals</span><b class="nav__count" id="badgePending" hidden>0</b></a>
+      <a href="#/kenh" data-route="kenh"><i data-icon="split"></i><span data-i18n="nav.channels">Channels</span></a>
+      <a href="#/bao-cao" data-route="bao-cao"><i data-icon="report"></i><span data-i18n="nav.report">Report</span></a>
+    </nav>
+
+    <div class="nav__foot">
+      <a class="nav__shop" href="shop.html" target="_blank" rel="noopener"><i data-icon="bag"></i><span data-i18n="nav.shop">Open the shop</span><i data-icon="external" data-class="ico--sm"></i></a>
+      <button class="nav__btn" data-action="tour-toggle"><i data-icon="play2"></i><span data-i18n="nav.tour">3-minute demo script</span></button>
+      <div class="nav__row"><span data-lang-switch="dark"></span><span class="sample-note" data-i18n="common.sample">Sample data</span></div>
+    </div>
+  </aside>
+  <div class="nav-scrim" data-action="nav-close" hidden></div>
+
+  <!-- Main -->
+  <div class="shell">
+    <header class="top">
+      <button class="icon-btn top__menu" data-action="nav-open" data-i18n-attr="aria-label:nav.open"><i data-icon="menu"></i></button>
+      <div class="top__title">
+        <h1 id="pageTitle">Lots</h1>
+        <p id="pageSub"></p>
+      </div>
+      <div class="top__right">
+        <label class="persona">
+          <span class="persona__ava" id="personaAva">TH</span>
+          <span class="sr-only" data-i18n="persona.label">Operator</span>
+          <select id="personaSelect" class="persona__select"></select>
+        </label>
+        <div class="menu">
+          <button class="icon-btn" data-action="menu-toggle" aria-haspopup="true" aria-expanded="false" data-i18n-attr="aria-label:menu.label"><i data-icon="more"></i></button>
+          <div class="menu__pop" id="menuPop" role="menu" hidden>
+            <button role="menuitem" data-action="reset-scenario"><i data-icon="refresh"></i><span data-i18n="menu.scenario">Reset to demo scenario</span></button>
+            <button role="menuitem" data-action="reset-blank"><i data-icon="x-circle"></i><span data-i18n="menu.blank">Start empty (nothing approved)</span></button>
+            <button role="menuitem" data-action="export-lots"><i data-icon="download"></i><span data-i18n="menu.export">Export lot summary (CSV)</span></button>
+            <button role="menuitem" data-action="contrast"><i data-icon="eye"></i><span id="contrastLabel">High contrast</span></button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Time simulation (lots, channels, report) -->
+    <section class="clock" id="clock" data-i18n-attr="aria-label:time.label" hidden>
+      <button class="clock__play" data-action="play"><span id="playIcon"></span></button>
+      <span class="clock__label" data-i18n="time.label">Simulation</span>
+      <input type="range" class="range" id="dayRange" min="0" max="60" step="1" value="0">
+      <output class="clock__out mono" id="dayOut" for="dayRange"></output>
+      <div class="clock__btns">
+        <button class="btn btn--ghost btn--xs" data-action="day-step" data-step="-1" data-i18n-attr="aria-label:time.back">−1</button>
+        <button class="btn btn--ghost btn--xs" data-action="day-step" data-step="1" data-i18n-attr="aria-label:time.fwd">+1</button>
+        <button class="btn btn--outline btn--xs" data-action="day-reset" data-i18n="time.today">Today</button>
+      </div>
+    </section>
+
+    <main id="view" class="view" tabindex="-1"></main>
+  </div>
+
+  <!-- Lot detail sheet -->
+  <div id="lotSheet" hidden>
+    <div class="scrim" data-action="drawer-close"></div>
+    <aside class="sheet" role="dialog" aria-modal="true" aria-labelledby="lotSheetTitle" id="lotSheetBody"></aside>
+  </div>
+
+  <!-- Demo script -->
+  <aside class="tour" id="tour" hidden></aside>
+
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/engine.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/ui.js"></script>
+  <script src="assets/js/store.js"></script>
+  <script src="assets/js/seller.js"></script>
+</body>
+</html>

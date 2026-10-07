@@ -1,0 +1,15 @@
+{
+  "name": "mrwowo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "mrwowo — clear short-dated stock, protect price, keep a record for every lot. Static demo (no build, no dependencies).",
+  "scripts": {
+    "start": "python3 -m http.server 8090",
+    "test": "node tests/engine.test.js && node tests/i18n.test.js",
+    "check": "node -c assets/js/data.js && node -c assets/js/engine.js && node -c assets/js/i18n.js && node -c assets/js/ui.js && node -c assets/js/store.js && node -c assets/js/seller.js && node -c assets/js/shop.js && node -c assets/js/landing.js && npm test --silent"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
