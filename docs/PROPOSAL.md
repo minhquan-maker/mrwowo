@@ -48,11 +48,11 @@ Web search done during drafting; links at the bottom. What I could and could not
 
 | Example | What it does | What it tells us |
 |---|---|---|
-| **Yume** (Melbourne, founded 2014) | B2B marketplace where food manufacturers sell or donate surplus, short-dated and de-ranged stock to commercial buyers. Big FMCG names (Unilever, Mars Food, Kellogg's) used it | **The need is real and big brands pay attention.** |
+| **Yume** (Melbourne, founded c. 2014–2016; sources differ) | B2B marketplace where food manufacturers sell or donate surplus, short-dated and de-ranged stock to commercial buyers. Big FMCG names (Unilever, Mars Food, Kellogg's) used it | **The need is real and big brands pay attention.** |
 | **Too Good To Go** (launched in Australia in Aug 2024) | Consumer app selling "surprise bags" of surplus food from shops and cafes. Reports 1,300+ Australian business partners | Consumers will buy discounted surplus food at scale. It is B2C and retail/hospitality, not brand-owner lot control |
 | **Charity rescue** (e.g. OzHarvest, Foodbank) | Donation channel | Shows the "donate" door is normal and socially accepted |
 
-**Important warning:** Yume was reported to have **gone into liquidation** after about ten years. A marketplace alone is
+**Important warning:** Yume was placed in **liquidation on 18 November 2025** after about ten years, after running out of operating capital. A marketplace alone is
 not automatically a good business. mrwowo must prove customers pay for *recovery + rule control + audit trail*, not just
 "a place to list stock". This is exactly what the Phase 0 interviews should test.
 
